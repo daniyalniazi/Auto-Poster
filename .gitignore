@@ -1,0 +1,36 @@
+# Secrets and local data — never commit
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+secrets*.json
+media/
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Build output
+build/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
