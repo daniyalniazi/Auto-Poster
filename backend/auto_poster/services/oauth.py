@@ -34,15 +34,19 @@ class PendingSignIn:
 _pending: dict[str, PendingSignIn] = {}
 
 
-def redirect_uri(base_url: str, platform: str) -> str:
+def redirect_uri(base_url: str, platform: str, host: str | None = None) -> str:
+    """The local callback address. Some platforms (LinkedIn, Facebook) only accept "localhost"
+    for http:// redirects, so the host can be swapped; the server accepts both."""
+    if host:
+        base_url = base_url.replace("127.0.0.1", host)
     return f"{base_url}/oauth/{platform}/callback"
 
 
-def start(platform: str, base_url: str, **extra) -> tuple[str, PendingSignIn]:
+def start(platform: str, base_url: str, host: str | None = None, **extra) -> tuple[str, PendingSignIn]:
     """Create a single-use state value. Returns (state, pending sign-in)."""
     _expire()
     state = secrets.token_urlsafe(24)
-    pending = PendingSignIn(platform=platform, redirect_uri=redirect_uri(base_url, platform), extra=extra)
+    pending = PendingSignIn(platform=platform, redirect_uri=redirect_uri(base_url, platform, host), extra=extra)
     _pending[state] = pending
     return state, pending
 

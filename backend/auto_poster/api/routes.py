@@ -36,10 +36,15 @@ def info() -> dict:
 
 
 @router.get("/platforms")
-def platforms() -> list[dict]:
+def platforms(request: Request) -> list[dict]:
+    port = str(request.app.state.port)
     result = []
     for connector in CONNECTORS.values():
         config = settings_service.load_config(connector)
+        guide = connector.setup_guide.model_dump()
+        # Guides can mention the local address (e.g. OAuth redirect URLs) as {port}.
+        guide["steps"] = [step.replace("{port}", port) for step in guide["steps"]]
+        guide["notes"] = [note.replace("{port}", port) for note in guide["notes"]]
         result.append(
             {
                 "id": connector.id,
@@ -50,7 +55,7 @@ def platforms() -> list[dict]:
                 "settings_fields": [f.model_dump() for f in connector.settings_fields],
                 "post_fields": [f.model_dump() for f in connector.post_fields],
                 "actions": [a.model_dump() for a in connector.actions],
-                "setup_guide": connector.setup_guide.model_dump(),
+                "setup_guide": guide,
             }
         )
     return result
