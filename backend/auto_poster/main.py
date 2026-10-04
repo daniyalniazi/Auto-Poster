@@ -94,6 +94,24 @@ def _port_free(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) != 0
 
 
+def _is_auto_poster(url: str) -> bool:
+    import httpx
+
+    try:
+        return "token" in httpx.get(url + "api/session", timeout=2).json()
+    except Exception:
+        return False
+
+
+def _pause_if_double_clicked() -> None:
+    """Keep the window open long enough to read the error when started by double-click."""
+    if getattr(sys, "frozen", False):
+        try:
+            input("Press Enter to close this window.")
+        except EOFError:
+            pass
+
+
 def run() -> None:
     parser = argparse.ArgumentParser(description="Auto Poster: write once, post everywhere.")
     parser.add_argument("--port", type=int, default=int(os.environ.get("AUTO_POSTER_PORT", DEFAULT_PORT)))
@@ -103,15 +121,20 @@ def run() -> None:
     args = parser.parse_args()
 
     setup_logging(debug=args.debug)
+    url = f"http://127.0.0.1:{args.port}/"
     if not _port_free(args.port):
-        log.error("Port %s is already in use. Is Auto Poster already running? "
-                  "Close it, or start with --port <another number>.", args.port)
+        if _is_auto_poster(url):
+            log.info("Auto Poster is already running. Opening it in your browser.")
+            if not args.no_browser:
+                webbrowser.open(url)
+            return
+        log.error("Port %s is used by another program. Start Auto Poster with --port <another number>.", args.port)
+        _pause_if_double_clicked()
         sys.exit(1)
 
     import uvicorn
 
     app = create_app(args.port, dev=args.dev)
-    url = f"http://127.0.0.1:{args.port}/"
     log.info("Auto Poster is running at %s (data folder: %s)", url, data_dir())
     log.info("Keep this window open while using the app, and for scheduled posts to be sent. "
              "Press Ctrl+C to stop.")

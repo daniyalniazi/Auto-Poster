@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 import httpx
-import pytest
 import respx
 
 from auto_poster.connectors.base import safe_post, safe_test_connection

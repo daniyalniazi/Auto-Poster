@@ -39,6 +39,18 @@ export default function SettingsPage() {
           </p>
         </div>
       )}
+      <nav className="card overview" aria-label="Platforms">
+        {platforms.map((p) => (
+          <button
+            key={p.id}
+            className="overview-item"
+            onClick={() => document.getElementById(`settings-${p.id}`)?.scrollIntoView({ behavior: "smooth" })}
+          >
+            <span>{p.name}</span>
+            {p.configured ? <span className="badge ok">Connected</span> : <span className="badge">Not connected</span>}
+          </button>
+        ))}
+      </nav>
       {platforms.map((p) => (
         <PlatformSettingsCard key={p.id} platform={p} onChanged={reload} />
       ))}

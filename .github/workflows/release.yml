@@ -1,0 +1,59 @@
+name: Release
+
+# Push a tag like v1.0.0 to build Windows and Linux downloads and attach them to a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            file: AutoPoster.exe
+            asset: AutoPoster-windows-x64.exe
+          - os: ubuntu-22.04  # older glibc, so the binary runs on more Linux distributions
+            file: AutoPoster
+            asset: AutoPoster-linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test
+        run: |
+          python -m pip install -e ".[dev,build]"
+          pytest
+      - name: Build
+        run: python scripts/build.py
+      - name: Rename
+        shell: bash
+        run: mv "dist/${{ matrix.file }}" "dist/${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chmod +x assets/AutoPoster-linux-x64
+          gh release create "${{ github.ref_name }}" assets/* \
+            --repo "${{ github.repository }}" --title "${{ github.ref_name }}" --generate-notes

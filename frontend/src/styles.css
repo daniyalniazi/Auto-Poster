@@ -218,3 +218,9 @@ details.guide ol { padding-left: 20px; }
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); border: 0;
 }
+
+.overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; padding: 12px; }
+.overview-item { justify-content: space-between; width: 100%; font-weight: 600; }
+section.card { scroll-margin-top: 16px; }
+
+.help, .notice p, details.guide li { overflow-wrap: anywhere; }

@@ -28,13 +28,14 @@ telemetry.
 | Secrets | OS keyring via `keyring` (Windows Credential Manager, Linux Secret Service). Fallback: restricted file (see Security). |
 | Images | `Pillow` for format/dimension checks and platform-required resizing. Multiple images per post, limited per platform. |
 | Tests | `pytest` + `respx` (mocked HTTP). The default test suite never contacts a real platform. |
-| Packaging | PyInstaller build per OS with the pre-built frontend bundled. Windows: `.exe`. Linux: tarball (AppImage later). |
+| Packaging | `scripts/build.py`: builds the frontend, bundles it into one PyInstaller executable. Windows: `AutoPoster.exe`; Linux: `AutoPoster` binary (built on Ubuntu 22.04 for wide glibc compatibility). Built and attached to GitHub releases by `.github/workflows/release.yml`. |
 | License | MIT. |
 
-## Planned folder structure
+## Folder structure
 
 ```
-README.md  LICENSE  CONTRIBUTING.md  .gitignore  pyproject.toml  .env.example
+README.md  LICENSE  CONTRIBUTING.md  SECURITY.md  .gitignore  pyproject.toml
+.github/workflows/  ci.yml (tests on Windows + Linux), release.yml (builds downloads on tags)
 docs/
   architecture.md  connectors.md  testing.md
   platforms/telegram.md bluesky.md mastodon.md linkedin.md facebook.md
@@ -42,14 +43,14 @@ backend/auto_poster/
   main.py            app startup, opens browser
   api/               HTTP routes used by the UI
   connectors/        base.py, registry.py, one file per platform
-  services/          publishing, validation, history, scheduler
+  services/          publishing, validation, history, scheduler, media, oauth
   models/            shared data models (Post, PostResult, PlatformLimits, ...)
   database/          SQLite schema and queries
   security/          credential store, log redaction, local-request guard
 backend/tests/
 frontend/src/
   pages/  components/  services/
-scripts/             build / packaging helpers
+scripts/             build.py (PyInstaller packaging), launcher.py
 ```
 
 ## Connector interface

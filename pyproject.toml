@@ -26,6 +26,10 @@ dev = [
     "respx>=0.21",
 ]
 
+build = [
+    "pyinstaller>=6.10",
+]
+
 [project.scripts]
 auto-poster = "auto_poster.main:run"
 
