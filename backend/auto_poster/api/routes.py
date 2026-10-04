@@ -52,7 +52,7 @@ def platforms(request: Request) -> list[dict]:
                 "description": connector.description,
                 "configured": connector.is_configured(config),
                 "limits": connector.effective_limits(config).model_dump(),
-                "settings_fields": [f.model_dump() for f in connector.settings_fields],
+                "settings_fields": [f.model_dump() for f in connector.settings_fields_for(config)],
                 "post_fields": [f.model_dump() for f in connector.post_fields],
                 "actions": [a.model_dump() for a in connector.actions],
                 "setup_guide": guide,

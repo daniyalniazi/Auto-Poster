@@ -30,14 +30,14 @@ def public_settings(connector: Connector) -> dict[str, str]:
     return {
         key: (mask_for_display(value) if key in connector.secret_keys else value)
         for key, value in config.items()
-        if key in {f.key for f in connector.settings_fields}
+        if key in {f.key for f in connector.settings_fields_for(config)}
     }
 
 
 def save_settings(connector: Connector, values: dict[str, str]) -> None:
     """Save the submitted fields. An empty secret field means 'keep the current value'."""
     store = get_store()
-    known = {f.key: f for f in connector.settings_fields}
+    known = {f.key: f for f in connector.settings_fields_for(load_config(connector))}
     with database.session() as conn:
         for key, value in values.items():
             if key not in known:

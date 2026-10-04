@@ -69,6 +69,11 @@ class Connector(ABC):
         limits = self.effective_limits(config)
         return check_text(self, post, limits) + check_images(self, post, limits)
 
+    def settings_fields_for(self, config: Config) -> list[FieldSpec]:
+        """Settings fields for the current state. Override when choices depend on the account
+        (e.g. a list of Facebook Pages to pick from)."""
+        return self.settings_fields
+
     def effective_limits(self, config: Config) -> PlatformLimits:
         """Limits for this user's account/server. Override when they vary (e.g. Mastodon servers)."""
         return self.limits
