@@ -126,14 +126,15 @@ _store: CredentialStore | None = None
 def get_store() -> CredentialStore:
     global _store
     if _store is None:
-        if os.environ.get("AUTO_POSTER_SECRET_STORE") == "file":
-            backend = None
-        else:
-            backend = _usable_keyring()
+        forced_file = os.environ.get("AUTO_POSTER_SECRET_STORE") == "file"
+        backend = None if forced_file else _usable_keyring()
         if backend is not None:
             _store = KeyringStore(backend)
         else:
-            log.warning("No OS keyring found; storing secrets in a user-only file instead.")
+            if forced_file:
+                log.info("AUTO_POSTER_SECRET_STORE=file: storing secrets in a user-only file.")
+            else:
+                log.warning("No OS keyring found; storing secrets in a user-only file instead.")
             _store = FileStore(data_dir() / "secrets.json")
     return _store
 

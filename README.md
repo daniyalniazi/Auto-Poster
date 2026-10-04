@@ -12,7 +12,7 @@ Write once. Publish to multiple social platforms.
 
 Runs locally. No account required. No cloud backend. Open source.
 
-> **Status:** early development (Phase 1 of 7). Telegram posting works. See
+> **Status:** early development (Phase 2 of 7). Telegram posting, history and scheduling work. See
 > [docs/architecture.md](docs/architecture.md) for the plan.
 
 ## What it does
@@ -20,7 +20,15 @@ Runs locally. No account required. No cloud backend. Open source.
 1. Write a post and attach images.
 2. Tick the platforms that should receive it.
 3. Auto Poster checks each platform's rules (length, image size, format…) before you publish.
-4. Click **Publish now** and see which platforms worked and which didn't, with a plain-English reason.
+4. Click **Publish now**, or choose **Later** to schedule it.
+5. See which platforms worked and which didn't, with a plain-English reason. Everything is kept in **History**.
+
+### Scheduling
+
+Scheduled posts are sent by Auto Poster itself, so **it must be running** at the scheduled
+time (you can minimise the window). If it was closed, posts up to an hour late are sent when you
+open it again; older ones are marked **Missed** so nothing goes out unexpectedly, and you can
+send or reschedule them from the **Scheduled** page.
 
 ## Your data stays with you
 

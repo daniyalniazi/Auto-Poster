@@ -11,13 +11,15 @@ interface Props {
   images: AttachedImage[];
   onChange: (images: AttachedImage[]) => void;
   disabled?: boolean;
+  // Off when editing a scheduled post: its saved images must survive until the user saves.
+  deleteOnRemove?: boolean;
 }
 
 function size(bytes: number): string {
   return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function ImagePicker({ images, onChange, disabled }: Props) {
+export default function ImagePicker({ images, onChange, disabled, deleteOnRemove = true }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export default function ImagePicker({ images, onChange, disabled }: Props) {
     const image = images.find((i) => i.info.id === id);
     if (image) URL.revokeObjectURL(image.previewUrl);
     onChange(images.filter((i) => i.info.id !== id));
-    api.deleteImage(id).catch(() => undefined);
+    if (deleteOnRemove) api.deleteImage(id).catch(() => undefined);
   }
 
   function setAlt(id: string, alt: string) {

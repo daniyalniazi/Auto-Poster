@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import ComposePage from "./pages/ComposePage";
 import HistoryPage from "./pages/HistoryPage";
+import ScheduledPage from "./pages/ScheduledPage";
 import SettingsPage from "./pages/SettingsPage";
 
 const PAGES = [
   { hash: "#/", label: "Create post" },
+  { hash: "#/scheduled", label: "Scheduled" },
   { hash: "#/history", label: "History" },
   { hash: "#/settings", label: "Settings" },
 ];
@@ -16,9 +18,13 @@ function currentHash(): string {
 
 export default function App() {
   const [page, setPage] = useState(currentHash);
+  const [fullHash, setFullHash] = useState(window.location.hash);
 
   useEffect(() => {
-    const onChange = () => setPage(currentHash());
+    const onChange = () => {
+      setPage(currentHash());
+      setFullHash(window.location.hash);
+    };
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);
@@ -38,7 +44,9 @@ export default function App() {
         </div>
       </header>
       <main>
-        {page === "#/" && <ComposePage />}
+        {/* key: switching between "edit scheduled post" and "new post" starts a fresh form */}
+        {page === "#/" && <ComposePage key={fullHash} />}
+        {page === "#/scheduled" && <ScheduledPage />}
         {page === "#/history" && <HistoryPage />}
         {page === "#/settings" && <SettingsPage />}
       </main>

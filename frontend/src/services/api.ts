@@ -91,7 +91,24 @@ export interface HistoryEntry {
   image_count: number;
   platforms: string[];
   status: string;
+  source: string;
   results: PostResult[];
+}
+
+export interface ScheduledPost {
+  id: number;
+  created_at: string;
+  updated_at: string;
+  scheduled_at: string;
+  text: string;
+  images: ImageInfo[];
+  alt_texts: Record<string, string>;
+  platforms: string[];
+  options: Record<string, Record<string, string>>;
+  enabled: boolean;
+  status: string;
+  note: string | null;
+  history_post_id: number | null;
 }
 
 export class ApiError extends Error {
@@ -158,5 +175,23 @@ export const api = {
   validate: (post: PostRequest) => request<Record<string, Problem[]>>("POST", "/validate", post),
   publish: (post: PostRequest, requestId: string) =>
     request<PublishResponse>("POST", "/publish", { ...post, request_id: requestId }),
-  history: (limit = 50, offset = 0) => request<HistoryEntry[]>("GET", `/history?limit=${limit}&offset=${offset}`),
+  history: (limit = 50, offset = 0, status = "") =>
+    request<HistoryEntry[]>("GET", `/history?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ""}`),
+  deleteHistory: (id: number) => request<{ ok: boolean }>("DELETE", `/history/${id}`),
+  scheduled: () => request<ScheduledPost[]>("GET", "/scheduled"),
+  getScheduled: (id: number) => request<ScheduledPost>("GET", `/scheduled/${id}`),
+  createScheduled: (post: PostRequest, when: Date) =>
+    request<ScheduledPost>("POST", "/scheduled", { ...post, scheduled_at: when.toISOString() }),
+  updateScheduled: (id: number, post: PostRequest, when: Date) =>
+    request<ScheduledPost>("PUT", `/scheduled/${id}`, { ...post, scheduled_at: when.toISOString() }),
+  setScheduledEnabled: (id: number, enabled: boolean) =>
+    request<ScheduledPost>("PUT", `/scheduled/${id}/enabled`, { enabled }),
+  sendScheduledNow: (id: number) => request<ScheduledPost>("POST", `/scheduled/${id}/send-now`),
+  deleteScheduled: (id: number) => request<{ ok: boolean }>("DELETE", `/scheduled/${id}`),
+  // <img> tags can't send the session header, so images are fetched and shown as blob URLs.
+  imageUrl: async (id: string) => {
+    const response = await fetch(`/api/media/${id}`, { headers: { "X-Auto-Poster-Token": await sessionToken() } });
+    if (!response.ok) throw new ApiError("Image not found.", response.status);
+    return URL.createObjectURL(await response.blob());
+  },
 };

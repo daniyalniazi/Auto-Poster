@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from auto_poster.connectors.base import safe_run_action, safe_test_connection
 from auto_poster.connectors.registry import CONNECTORS, get_connector
 from auto_poster.models import ActionResult, ConnectionStatus, ImageInfo, PostRequest, PostResult, Problem
 from auto_poster.security.credentials import get_store
-from auto_poster.services import history, media, publisher
+from auto_poster.services import history, media, publisher, scheduler
 from auto_poster.services import settings as settings_service
 
 router = APIRouter(prefix="/api")
@@ -103,6 +106,14 @@ async def upload_media(file: UploadFile = File(...)) -> ImageInfo:
     )
 
 
+@router.get("/media/{image_id}")
+def get_media(image_id: str) -> FileResponse:
+    image = media.load(image_id)
+    if image is None:
+        raise HTTPException(404, "Image not found.")
+    return FileResponse(image.path, media_type=image.mime_type)
+
+
 @router.delete("/media/{image_id}")
 def delete_media(image_id: str) -> dict:
     media.delete(image_id)
@@ -136,5 +147,80 @@ async def publish(request: PublishRequest) -> PublishResponse:
 
 
 @router.get("/history")
-def get_history(limit: int = 50, offset: int = 0) -> list[history.HistoryEntry]:
-    return history.list_entries(limit=min(limit, 200), offset=max(offset, 0))
+def get_history(limit: int = 50, offset: int = 0, status: str | None = None) -> list[history.HistoryEntry]:
+    return history.list_entries(limit=min(limit, 200), offset=max(offset, 0), status=status)
+
+
+@router.delete("/history/{post_id}")
+def delete_history(post_id: int) -> dict:
+    history.delete_entry(post_id)
+    return {"ok": True}
+
+
+# ---- scheduled posts -------------------------------------------------------------------
+
+
+class ScheduleRequest(PostRequest):
+    scheduled_at: datetime  # must include a time zone offset
+
+
+@router.get("/scheduled")
+def list_scheduled() -> list[scheduler.ScheduledPost]:
+    return scheduler.list_all()
+
+
+def _scheduled_or_404(post_id: int) -> scheduler.ScheduledPost:
+    post = scheduler.get(post_id)
+    if post is None:
+        raise HTTPException(404, "That scheduled post no longer exists.")
+    return post
+
+
+@router.get("/scheduled/{post_id}")
+def get_scheduled(post_id: int) -> scheduler.ScheduledPost:
+    return _scheduled_or_404(post_id)
+
+
+@router.post("/scheduled")
+def create_scheduled(request: ScheduleRequest) -> scheduler.ScheduledPost:
+    try:
+        return scheduler.create(request, request.scheduled_at)
+    except scheduler.ScheduleError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@router.put("/scheduled/{post_id}")
+def update_scheduled(post_id: int, request: ScheduleRequest) -> scheduler.ScheduledPost:
+    _scheduled_or_404(post_id)
+    try:
+        return scheduler.update(post_id, request, request.scheduled_at)
+    except scheduler.ScheduleError as exc:
+        raise HTTPException(400, str(exc))
+
+
+class EnabledRequest(BaseModel):
+    enabled: bool
+
+
+@router.put("/scheduled/{post_id}/enabled")
+def set_scheduled_enabled(post_id: int, body: EnabledRequest) -> scheduler.ScheduledPost:
+    _scheduled_or_404(post_id)
+    return scheduler.set_enabled(post_id, body.enabled)
+
+
+@router.post("/scheduled/{post_id}/send-now")
+async def send_scheduled_now(post_id: int) -> scheduler.ScheduledPost:
+    _scheduled_or_404(post_id)
+    result = await scheduler.send(post_id, allowed_from=("scheduled", "missed"))
+    if result is None:
+        raise HTTPException(409, "This post is already being sent or was already sent.")
+    return result
+
+
+@router.delete("/scheduled/{post_id}")
+def delete_scheduled(post_id: int) -> dict:
+    try:
+        scheduler.delete(post_id)
+    except scheduler.ScheduleError as exc:
+        raise HTTPException(409, str(exc))
+    return {"ok": True}

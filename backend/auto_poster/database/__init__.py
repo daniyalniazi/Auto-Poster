@@ -42,6 +42,26 @@ MIGRATIONS = [
     );
     CREATE INDEX idx_post_results_post ON post_results(post_id);
     """,
+    """
+    ALTER TABLE posts ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
+    CREATE TABLE scheduled_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        scheduled_at TEXT NOT NULL,          -- UTC, ISO 8601
+        text TEXT NOT NULL,
+        image_ids TEXT NOT NULL,             -- JSON list
+        alt_texts TEXT NOT NULL,             -- JSON object
+        platforms TEXT NOT NULL,             -- JSON list
+        options TEXT NOT NULL,               -- JSON object
+        enabled INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL,                -- scheduled, sending, sent, partial, failed, missed
+        attempt INTEGER NOT NULL DEFAULT 0,  -- bumped by "send now"/reschedule so request IDs stay unique
+        history_post_id INTEGER REFERENCES posts(id) ON DELETE SET NULL,
+        note TEXT
+    );
+    CREATE INDEX idx_scheduled_due ON scheduled_posts(status, enabled, scheduled_at);
+    """,
 ]
 
 

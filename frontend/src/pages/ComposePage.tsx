@@ -2,7 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import FieldInput from "../components/FieldInput";
 import ImagePicker, { type AttachedImage } from "../components/ImagePicker";
 import ResultList from "../components/ResultList";
-import { api, type Platform, type PostRequest, type Problem, type PublishResponse } from "../services/api";
+import {
+  api,
+  type Platform,
+  type PostRequest,
+  type Problem,
+  type PublishResponse,
+  type ScheduledPost,
+} from "../services/api";
+import { formatDate, fromLocalInput, timeZoneName, toLocalInput } from "../services/dates";
 import { charLimit, textLength } from "../services/textLength";
 
 const SELECTED_KEY = "auto-poster.selected-platforms";
@@ -23,27 +31,61 @@ function saveSelected(ids: string[]) {
   }
 }
 
-function newRequestId(): string {
-  return crypto.randomUUID();
+function editIdFromHash(): number | null {
+  const match = window.location.hash.match(/[?&]edit=(\d+)/);
+  return match ? Number(match[1]) : null;
 }
 
+function defaultScheduleTime(): string {
+  const date = new Date(Date.now() + 60 * 60 * 1000);
+  date.setMinutes(0, 0, 0);
+  return toLocalInput(date);
+}
+
+type Done = { kind: "published"; response: PublishResponse } | { kind: "scheduled"; post: ScheduledPost };
+
 export default function ComposePage() {
+  const editId = useMemo(editIdFromHash, []);
   const [platforms, setPlatforms] = useState<Platform[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<string[]>(loadSelected);
+  const [selected, setSelected] = useState<string[]>(editId ? [] : loadSelected);
   const [text, setText] = useState("");
   const [images, setImages] = useState<AttachedImage[]>([]);
   const [options, setOptions] = useState<Record<string, Record<string, string>>>({});
+  const [when, setWhen] = useState<"now" | "later">(editId ? "later" : "now");
+  const [scheduleAt, setScheduleAt] = useState(defaultScheduleTime);
   const [problems, setProblems] = useState<Record<string, Problem[]>>({});
   const [checking, setChecking] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [response, setResponse] = useState<PublishResponse | null>(null);
-  const [publishError, setPublishError] = useState<string | null>(null);
-  const publishLock = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<Done | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const submitLock = useRef(false);
 
   useEffect(() => {
     api.platforms().then(setPlatforms).catch((e) => setLoadError(e.message));
   }, []);
+
+  // Editing a scheduled post: load it into the form.
+  useEffect(() => {
+    if (!editId) return;
+    api
+      .getScheduled(editId)
+      .then(async (post) => {
+        setText(post.text);
+        setSelected(post.platforms);
+        setOptions(post.options);
+        setScheduleAt(toLocalInput(new Date(post.scheduled_at)));
+        const loaded = await Promise.all(
+          post.images.map(async (info) => ({
+            info,
+            previewUrl: await api.imageUrl(info.id).catch(() => ""),
+            alt: post.alt_texts[info.id] ?? "",
+          })),
+        );
+        setImages(loaded);
+      })
+      .catch((e) => setLoadError(e.message));
+  }, [editId]);
 
   const names = useMemo(
     () => Object.fromEntries((platforms ?? []).map((p) => [p.id, p.name])),
@@ -82,43 +124,82 @@ export default function ComposePage() {
   function toggle(id: string) {
     const next = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
     setSelected(next);
-    saveSelected(next);
+    if (!editId) saveSelected(next);
   }
 
   function setOption(platformId: string, key: string, value: string) {
     setOptions((prev) => ({ ...prev, [platformId]: { ...prev[platformId], [key]: value } }));
   }
 
-  const errorCount = Object.values(problems).flat().filter((p) => p.level === "error").length;
-  const canPublish = activeSelection.length > 0 && errorCount === 0 && !checking && !publishing;
+  const scheduleDate = fromLocalInput(scheduleAt);
+  const scheduleProblem =
+    when !== "later"
+      ? null
+      : !scheduleDate
+        ? "Choose a date and time."
+        : scheduleDate.getTime() < Date.now()
+          ? "That time has already passed. Choose a time in the future."
+          : null;
 
-  async function publish() {
-    if (!canPublish || publishLock.current) return;
-    publishLock.current = true; // blocks a second click before React re-renders
-    setPublishing(true);
-    setPublishError(null);
+  const errorCount = Object.values(problems).flat().filter((p) => p.level === "error").length;
+  const canSubmit =
+    activeSelection.length > 0 && errorCount === 0 && !scheduleProblem && !checking && !busy;
+
+  async function submit() {
+    if (!canSubmit || submitLock.current) return;
+    submitLock.current = true; // blocks a second click before React re-renders
+    setBusy(true);
+    setSubmitError(null);
     try {
-      setResponse(await api.publish(postRequest, newRequestId()));
+      if (when === "now") {
+        setDone({ kind: "published", response: await api.publish(postRequest, crypto.randomUUID()) });
+      } else if (editId) {
+        setDone({ kind: "scheduled", post: await api.updateScheduled(editId, postRequest, scheduleDate!) });
+      } else {
+        setDone({ kind: "scheduled", post: await api.createScheduled(postRequest, scheduleDate!) });
+      }
     } catch (e) {
-      setPublishError(e instanceof Error ? e.message : String(e));
+      setSubmitError(e instanceof Error ? e.message : String(e));
     } finally {
-      setPublishing(false);
-      publishLock.current = false;
+      setBusy(false);
+      submitLock.current = false;
     }
   }
 
   function startNew() {
-    images.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+    images.forEach((i) => i.previewUrl && URL.revokeObjectURL(i.previewUrl));
     setText("");
     setImages([]);
     setOptions({});
-    setResponse(null);
+    setDone(null);
+    setWhen("now");
+    if (editId) window.location.hash = "#/";
   }
 
   if (loadError) return <div className="notice bad" role="alert"><p>{loadError}</p></div>;
   if (!platforms) return <p className="muted">Loading…</p>;
 
-  if (response) {
+  if (done?.kind === "scheduled") {
+    return (
+      <>
+        <h1>{editId ? "Changes saved" : "Post scheduled"}</h1>
+        <div className="card">
+          <p style={{ marginTop: 0 }}>
+            It will be posted to {done.post.platforms.map((id) => names[id] ?? id).join(", ")} on{" "}
+            <strong>{formatDate(done.post.scheduled_at)}</strong>.
+          </p>
+          <p className="help">Auto Poster must be running at that time for the post to be sent.</p>
+        </div>
+        <div className="row">
+          <button className="primary" onClick={startNew}>Write a new post</button>
+          <a className="button" href="#/scheduled">View scheduled posts</a>
+        </div>
+      </>
+    );
+  }
+
+  if (done?.kind === "published") {
+    const { response } = done;
     const ok = response.results.filter((r) => r.success).length;
     const total = response.results.length;
     return (
@@ -129,9 +210,7 @@ export default function ComposePage() {
         </div>
         <div className="row">
           <button className="primary" onClick={startNew}>Write a new post</button>
-          {ok < total && (
-            <button onClick={() => setResponse(null)}>Back to this post</button>
-          )}
+          {ok < total && <button onClick={() => setDone(null)}>Back to this post</button>}
           <a className="button" href="#/history">View history</a>
         </div>
         {ok < total && ok > 0 && (
@@ -145,10 +224,13 @@ export default function ComposePage() {
   }
 
   const generalProblems = problems.all ?? [];
+  const buttonLabel = busy
+    ? when === "now" ? "Publishing…" : "Saving…"
+    : when === "now" ? "Publish now" : editId ? "Save changes" : "Schedule post";
 
   return (
     <>
-      <h1>Create post</h1>
+      <h1>{editId ? "Edit scheduled post" : "Create post"}</h1>
 
       <section className="card" aria-labelledby="content-heading">
         <h2 id="content-heading">Your post</h2>
@@ -158,10 +240,10 @@ export default function ComposePage() {
           value={text}
           placeholder="What do you want to share?"
           onChange={(e) => setText(e.target.value)}
-          disabled={publishing}
+          disabled={busy}
         />
         <div style={{ marginTop: 10 }}>
-          <ImagePicker images={images} onChange={setImages} disabled={publishing} />
+          <ImagePicker images={images} onChange={setImages} disabled={busy} deleteOnRemove={!editId} />
         </div>
       </section>
 
@@ -181,7 +263,7 @@ export default function ComposePage() {
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggle(p.id)}
-                    disabled={publishing}
+                    disabled={busy}
                   />
                   <label htmlFor={`select-${p.id}`} className="name" style={{ margin: 0 }}>{p.name}</label>
                   <span className="spacer" />
@@ -200,7 +282,7 @@ export default function ComposePage() {
                   )}
                 </div>
                 {isSelected && (platformProblems.length > 0 || p.post_fields.length > 0) && (
-                  <div style={{ padding: "10px 12px 0 40px" }}>
+                  <div className="platform-options">
                     {platformProblems.map((problem, i) => (
                       <div key={i} className={`notice ${problem.level === "error" ? "bad" : "warn"}`}>
                         <p>{problem.message}</p>
@@ -223,23 +305,55 @@ export default function ComposePage() {
         </div>
       </section>
 
+      <section className="card" aria-labelledby="when-heading">
+        <h2 id="when-heading">When</h2>
+        <div className="row" role="radiogroup" aria-labelledby="when-heading">
+          {!editId && (
+            <label className="checkbox-row">
+              <input type="radio" name="when" checked={when === "now"} onChange={() => setWhen("now")} />
+              Now
+            </label>
+          )}
+          <label className="checkbox-row">
+            <input type="radio" name="when" checked={when === "later"} onChange={() => setWhen("later")} />
+            Later
+          </label>
+        </div>
+        {when === "later" && (
+          <div className="field" style={{ marginTop: 10, maxWidth: 320 }}>
+            <label htmlFor="schedule-at">Date and time</label>
+            <input
+              id="schedule-at"
+              type="datetime-local"
+              value={scheduleAt}
+              onChange={(e) => setScheduleAt(e.target.value)}
+            />
+            <p className="help">
+              Your time zone: {timeZoneName()}. Auto Poster must be running at this time.
+            </p>
+            {scheduleProblem && <div className="notice bad"><p>{scheduleProblem}</p></div>}
+          </div>
+        )}
+      </section>
+
       {generalProblems.length > 0 && activeSelection.length > 0 && (
         <div className="notice bad">{generalProblems.map((p, i) => <p key={i}>{p.message}</p>)}</div>
       )}
-      {publishError && <div className="notice bad" role="alert"><p>{publishError}</p></div>}
+      {submitError && <div className="notice bad" role="alert"><p>{submitError}</p></div>}
 
       <div className="row">
-        <button className="primary big" onClick={publish} disabled={!canPublish} aria-busy={publishing}>
-          {publishing ? "Publishing…" : "Publish now"}
+        <button className="primary big" onClick={submit} disabled={!canSubmit} aria-busy={busy}>
+          {buttonLabel}
         </button>
+        {editId && <a className="button" href="#/scheduled">Cancel</a>}
         <span className="help" aria-live="polite">
           {activeSelection.length === 0
             ? "Choose at least one platform."
             : checking
               ? "Checking…"
               : errorCount > 0
-                ? `Fix ${errorCount === 1 ? "the problem" : `the ${errorCount} problems`} above to publish.`
-                : `Ready to post to ${activeSelection.map((id) => names[id]).join(", ")}.`}
+                ? `Fix ${errorCount === 1 ? "the problem" : `the ${errorCount} problems`} above to continue.`
+                : `Ready for ${activeSelection.map((id) => names[id]).join(", ")}.`}
         </span>
       </div>
     </>

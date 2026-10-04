@@ -20,7 +20,7 @@ TOKEN = "123456789:AAFakeTokenForTestsOnly_abcdefghijklmnop"
 
 @pytest.fixture
 def client():
-    app = create_app(PORT)
+    app = create_app(PORT, run_scheduler=False)
     with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as c:
         token = c.get("/api/session").json()["token"]
         c.headers["X-Auto-Poster-Token"] = token
@@ -36,7 +36,7 @@ def configure_telegram(client):
 
 
 def test_api_requires_session_token():
-    app = create_app(PORT)
+    app = create_app(PORT, run_scheduler=False)
     with TestClient(app, base_url=f"http://127.0.0.1:{PORT}") as c:
         assert c.get("/api/platforms").status_code == 403
         assert c.get("/api/platforms", headers={"X-Auto-Poster-Token": "wrong"}).status_code == 403

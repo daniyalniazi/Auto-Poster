@@ -17,7 +17,8 @@ class HistoryEntry(BaseModel):
     text: str
     image_count: int
     platforms: list[str]
-    status: str  # "publishing", "success", "partial", "failed"
+    status: str  # "publishing", "success", "partial", "failed", "interrupted"
+    source: str  # "manual" or "scheduled"
     results: list[PostResult]
 
 
@@ -25,12 +26,12 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def create_post(request_id: str, post: Post, platforms: list[str]) -> int:
+def create_post(request_id: str, post: Post, platforms: list[str], source: str = "manual") -> int:
     with database.session() as conn:
         cursor = conn.execute(
-            "INSERT INTO posts (request_id, created_at, text, image_count, platforms, status) "
-            "VALUES (?, ?, ?, ?, ?, 'publishing')",
-            (request_id, now_iso(), post.text, len(post.images), json.dumps(platforms)),
+            "INSERT INTO posts (request_id, created_at, text, image_count, platforms, status, source) "
+            "VALUES (?, ?, ?, ?, ?, 'publishing', ?)",
+            (request_id, now_iso(), post.text, len(post.images), json.dumps(platforms), source),
         )
         return cursor.lastrowid
 
@@ -81,6 +82,7 @@ def _entry(conn, row) -> HistoryEntry:
         image_count=row["image_count"],
         platforms=json.loads(row["platforms"]),
         status=row["status"],
+        source=row["source"],
         results=_results(conn, row["id"]),
     )
 
@@ -91,12 +93,34 @@ def find_by_request_id(request_id: str) -> HistoryEntry | None:
         return _entry(conn, row) if row else None
 
 
-def list_entries(limit: int = 50, offset: int = 0) -> list[HistoryEntry]:
+STATUS_FILTERS = {
+    "success": ("success",),
+    "problems": ("partial", "failed", "interrupted"),
+}
+
+
+def list_entries(limit: int = 50, offset: int = 0, status: str | None = None) -> list[HistoryEntry]:
+    where, params = "", []
+    if status in STATUS_FILTERS:
+        values = STATUS_FILTERS[status]
+        where = f"WHERE status IN ({','.join('?' * len(values))})"
+        params.extend(values)
     with database.session() as conn:
         rows = conn.execute(
-            "SELECT * FROM posts ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset)
+            f"SELECT * FROM posts {where} ORDER BY id DESC LIMIT ? OFFSET ?", (*params, limit, offset)
         ).fetchall()
         return [_entry(conn, row) for row in rows]
+
+
+def get_entry(post_id: int) -> HistoryEntry | None:
+    with database.session() as conn:
+        row = conn.execute("SELECT * FROM posts WHERE id = ?", (post_id,)).fetchone()
+        return _entry(conn, row) if row else None
+
+
+def delete_entry(post_id: int) -> None:
+    with database.session() as conn:
+        conn.execute("DELETE FROM posts WHERE id = ?", (post_id,))
 
 
 def mark_interrupted() -> None:

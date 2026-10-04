@@ -42,7 +42,7 @@ backend/auto_poster/
   main.py            app startup, opens browser
   api/               HTTP routes used by the UI
   connectors/        base.py, registry.py, one file per platform
-  services/          publishing, validation, history, (Phase 2) scheduler
+  services/          publishing, validation, history, scheduler
   models/            shared data models (Post, PostResult, PlatformLimits, ...)
   database/          SQLite schema and queries
   security/          credential store, log redaction, local-request guard
@@ -131,11 +131,23 @@ LinkedIn and Facebook users create their own (free) developer app once and
 paste its ID and secret into Settings. This is the only way to stay fully local
 without a project-run server.
 
-## Scheduling (Phase 2)
+## Scheduling
 
-Scheduled posts run inside the local app process, so the app must be running
-at the scheduled time. Each scheduled post records whether it has already been
-sent, so a restart never posts it twice.
+Scheduled posts are sent by a background task inside the app (`services/scheduler.py`),
+which checks every 15 seconds. **The app must be running** for posts to go out.
+
+- **Claiming:** a due post is switched from `scheduled` to `sending` with one atomic
+  `UPDATE ... WHERE status = 'scheduled'`, so it can only be picked up once.
+- **No duplicates:** it is published with request ID `scheduled-<id>-<attempt>`. History
+  stores request IDs with a `UNIQUE` constraint, so the same attempt can never be posted twice.
+- **Restart safety:** if the app closes while a post is `sending`, it is **not** retried on the
+  next start. It is marked `failed` with a note asking the user to check the platforms, because
+  some platforms may already have it.
+- **Late posts:** if the app was closed at the scheduled time, posts up to 60 minutes late are
+  sent on the next start. Older ones are marked `missed`, and the user can "Send now" or edit them.
+- **No automatic retries.** Failures are recorded in History; the user decides what to do.
+- Times are stored in UTC and shown in the computer's local time zone.
+- Images of scheduled posts stay in the local media folder until the post is sent or deleted.
 
 ## Phases
 

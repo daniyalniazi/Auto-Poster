@@ -93,20 +93,26 @@ async def publish_to_platforms(post: Post, platforms: list[str], options: dict[s
     return list(await asyncio.gather(*(one(p) for p in platforms)))
 
 
-async def publish_now(request: PostRequest, request_id: str) -> tuple[int, list[PostResult]]:
-    """Publish immediately. Returns (history post id, results)."""
+async def publish_now(
+    request: PostRequest, request_id: str, source: str = "manual", delete_media: bool = True
+) -> tuple[int, list[PostResult]]:
+    """Publish immediately. Returns (history post id, results).
+
+    The request ID is stored with the history entry, so the same request can never be
+    published twice (double-clicks, retries, restarts).
+    """
     existing = history.find_by_request_id(request_id)
     if existing is not None:
-        return existing.id, existing.results  # same request already handled: never post twice
+        return existing.id, existing.results
     if request_id in _in_flight:
         raise DuplicateRequest()
     _in_flight.add(request_id)
     try:
         post, _ = build_post(request)
-        post_id = history.create_post(request_id, post, request.platforms)
+        post_id = history.create_post(request_id, post, request.platforms, source)
         results = await publish_to_platforms(post, request.platforms, request.options)
         history.save_results(post_id, results)
-        if all(r.success for r in results):
+        if delete_media and all(r.success for r in results):
             for image in post.images:
                 media.delete(image.id)
         # Otherwise keep the images so the user can go back and retry; old uploads are cleaned at startup.

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import logging
 import os
 import socket
 import sys
 import threading
 import webbrowser
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -20,7 +22,7 @@ from auto_poster.api.routes import router
 from auto_poster.config import DEFAULT_PORT, data_dir
 from auto_poster.security.local_guard import LocalGuard, LocalGuardMiddleware
 from auto_poster.security.redact import setup_logging
-from auto_poster.services import history, media
+from auto_poster.services import history, media, scheduler
 
 log = logging.getLogger("auto_poster")
 
@@ -37,12 +39,20 @@ def static_dir() -> Path | None:
     return None
 
 
-def create_app(port: int = DEFAULT_PORT, dev: bool = False) -> FastAPI:
+def create_app(port: int = DEFAULT_PORT, dev: bool = False, run_scheduler: bool = True) -> FastAPI:
     database.migrate()
     history.mark_interrupted()
-    media.cleanup_orphans()
+    scheduler.recover_after_restart()
+    media.cleanup_orphans(keep=scheduler.referenced_image_ids())
 
-    app = FastAPI(title="Auto Poster", docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        task = asyncio.create_task(scheduler.run_forever()) if run_scheduler else None
+        yield
+        if task:
+            task.cancel()
+
+    app = FastAPI(title="Auto Poster", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     guard = LocalGuard(port, extra_origins=DEV_FRONTEND_ORIGINS if dev else None)
     app.state.guard = guard
     app.state.port = port
@@ -91,7 +101,8 @@ def run() -> None:
     app = create_app(args.port, dev=args.dev)
     url = f"http://127.0.0.1:{args.port}/"
     log.info("Auto Poster is running at %s (data folder: %s)", url, data_dir())
-    log.info("Keep this window open while using the app. Press Ctrl+C to stop.")
+    log.info("Keep this window open while using the app, and for scheduled posts to be sent. "
+             "Press Ctrl+C to stop.")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning", log_config=None)
