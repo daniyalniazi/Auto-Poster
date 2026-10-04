@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from auto_poster.connectors.base import Connector
 from auto_poster.connectors.bluesky import BlueskyConnector
+from auto_poster.connectors.mastodon import MastodonConnector
 from auto_poster.connectors.telegram import TelegramConnector
 
 CONNECTORS: dict[str, Connector] = {
@@ -11,6 +12,7 @@ CONNECTORS: dict[str, Connector] = {
     for connector in [
         TelegramConnector(),
         BlueskyConnector(),
+        MastodonConnector(),
     ]
 }
 

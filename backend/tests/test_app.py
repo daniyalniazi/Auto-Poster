@@ -164,3 +164,15 @@ def test_redact_and_mask():
     assert TOKEN not in redact(f"url /bot{TOKEN}/getMe")
     assert mask_for_display(TOKEN).endswith(TOKEN[-4:])
     assert TOKEN[:10] not in mask_for_display(TOKEN)
+
+
+def test_oauth_callback_page_rejects_unknown_state(client):
+    r = client.get("/oauth/mastodon/callback?code=abc&state=forged")
+    assert r.status_code == 200
+    assert "Could not connect Mastodon" in r.text
+    assert "expired" in r.text
+
+
+def test_oauth_callback_blocked_for_foreign_host(client):
+    r = client.get("/oauth/mastodon/callback?code=abc&state=x", headers={"Host": "evil.example"})
+    assert r.status_code == 403

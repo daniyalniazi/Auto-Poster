@@ -6,13 +6,13 @@ Write once. Publish to multiple social platforms.
 |---|---|
 | Telegram (channels and groups) | ✅ Available |
 | Bluesky | ✅ Available |
-| Mastodon | Planned |
+| Mastodon (any server) | ✅ Available |
 | LinkedIn (personal profile) | Planned |
 | Facebook Pages | Planned |
 
 Runs locally. No account required. No cloud backend. Open source.
 
-> **Status:** early development (Phase 3 of 7). Telegram and Bluesky posting, history and scheduling work. See
+> **Status:** early development (Phase 4 of 7). Telegram, Bluesky and Mastodon posting, history and scheduling work. See
 > [docs/architecture.md](docs/architecture.md) for the plan.
 
 ## What it does
@@ -70,7 +70,7 @@ Options: `auto-poster --port 9000`, `--no-browser`, `--debug` (more detailed log
 ## Connecting platforms
 
 Open **Settings** in the app. Each platform has a short "How to connect" guide.
-More detail: [Telegram](docs/platforms/telegram.md), [Bluesky](docs/platforms/bluesky.md).
+More detail: [Telegram](docs/platforms/telegram.md), [Bluesky](docs/platforms/bluesky.md), [Mastodon](docs/platforms/mastodon.md).
 
 ## Not supported
 

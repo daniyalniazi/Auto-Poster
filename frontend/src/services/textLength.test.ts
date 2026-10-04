@@ -18,6 +18,10 @@ describe("textLength", () => {
   it("counts code points", () => {
     expect(textLength("😀a", "chars")).toBe(2);
   });
+  it("counts like Mastodon", () => {
+    expect(textLength("hi https://example.com/" + "a".repeat(100), "mastodon")).toBe(26);
+    expect(textLength("@bob@example.social", "mastodon")).toBe(4);
+  });
   it("counts graphemes", () => {
     expect(textLength("👨‍👩‍👧é", "graphemes")).toBe(2);
   });

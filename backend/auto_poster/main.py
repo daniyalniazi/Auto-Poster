@@ -13,16 +13,19 @@ import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from auto_poster import database
 from auto_poster.api.routes import router
 from auto_poster.config import DEFAULT_PORT, data_dir
+from auto_poster.connectors.base import safe_oauth_callback
+from auto_poster.connectors.registry import get_connector
 from auto_poster.security.local_guard import LocalGuard, LocalGuardMiddleware
 from auto_poster.security.redact import setup_logging
-from auto_poster.services import history, media, scheduler
+from auto_poster.services import history, media, oauth, scheduler
+from auto_poster.services.settings import load_config
 
 log = logging.getLogger("auto_poster")
 
@@ -58,6 +61,15 @@ def create_app(port: int = DEFAULT_PORT, dev: bool = False, run_scheduler: bool 
     app.state.port = port
     app.add_middleware(LocalGuardMiddleware, guard=guard)
     app.include_router(router)
+
+    @app.get("/oauth/{platform_id}/callback", include_in_schema=False)
+    async def oauth_callback(platform_id: str, request: Request):
+        connector = get_connector(platform_id)
+        if connector is None:
+            return HTMLResponse(oauth.result_page(False, "Unknown platform", "This sign-in link is not valid."), 404)
+        result = await safe_oauth_callback(connector, dict(request.query_params), load_config(connector))
+        title = f"{connector.display_name} connected" if result.ok else f"Could not connect {connector.display_name}"
+        return HTMLResponse(oauth.result_page(result.ok, title, result.message))
 
     static = static_dir()
     if static:

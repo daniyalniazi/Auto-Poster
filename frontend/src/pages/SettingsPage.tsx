@@ -14,6 +14,9 @@ export default function SettingsPage() {
   useEffect(() => {
     reload();
     api.info().then((i) => setStorage(i.secret_storage)).catch(() => undefined);
+    // Coming back from a sign-in tab: show the new connection state.
+    window.addEventListener("focus", reload);
+    return () => window.removeEventListener("focus", reload);
   }, []);
 
   if (error) return <div className="notice bad" role="alert"><p>{error}</p></div>;

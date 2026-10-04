@@ -25,7 +25,8 @@ export default function PlatformSettingsCard({ platform, onChanged }: Props) {
     });
   }
 
-  useEffect(load, [platform.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Reload when the connection state changes (e.g. after signing in on another tab).
+  useEffect(load, [platform.id, platform.configured]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function run(label: string, action: () => Promise<void>) {
     setBusy(label);
@@ -64,15 +65,30 @@ export default function PlatformSettingsCard({ platform, onChanged }: Props) {
     });
   };
 
-  const runAction = (actionId: string) =>
-    run(actionId, async () => {
-      await api.saveSettings(platform.id, values);
-      const result = await api.runAction(platform.id, actionId);
-      if (result.open_url) window.open(result.open_url, "_blank", "noopener");
-      setMessage({ kind: result.ok ? "ok" : "bad", text: result.message });
-      load();
-      onChanged();
+  const runAction = (actionId: string) => {
+    // Open the tab now, while we're still inside the click, so pop-up blockers allow it.
+    // Its address is filled in once the server returns the sign-in link.
+    const tab = window.open("about:blank", "_blank");
+    return run(actionId, async () => {
+      try {
+        await api.saveSettings(platform.id, values);
+        const result = await api.runAction(platform.id, actionId);
+        if (result.open_url && tab) {
+          tab.opener = null;
+          tab.location.href = result.open_url;
+        } else {
+          tab?.close();
+          if (result.open_url) window.open(result.open_url, "_blank", "noopener");
+        }
+        setMessage({ kind: result.ok ? "ok" : "bad", text: result.message });
+        load();
+        onChanged();
+      } catch (e) {
+        tab?.close();
+        throw e;
+      }
     });
+  };
 
   const guide = platform.setup_guide;
 

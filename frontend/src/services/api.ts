@@ -16,7 +16,7 @@ export interface FieldSpec {
 export interface PlatformLimits {
   max_chars: number;
   max_chars_with_images: number | null;
-  count_method: "chars" | "utf16" | "graphemes";
+  count_method: "chars" | "utf16" | "graphemes" | "mastodon";
   max_images: number;
   max_image_bytes: number;
   image_formats: string[];

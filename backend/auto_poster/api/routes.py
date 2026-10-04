@@ -46,7 +46,7 @@ def platforms() -> list[dict]:
                 "name": connector.display_name,
                 "description": connector.description,
                 "configured": connector.is_configured(config),
-                "limits": connector.limits.model_dump(),
+                "limits": connector.effective_limits(config).model_dump(),
                 "settings_fields": [f.model_dump() for f in connector.settings_fields],
                 "post_fields": [f.model_dump() for f in connector.post_fields],
                 "actions": [a.model_dump() for a in connector.actions],

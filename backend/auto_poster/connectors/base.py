@@ -66,7 +66,20 @@ class Connector(ABC):
 
     def validate(self, post: Post, options: Options, config: Config) -> list[Problem]:
         """Local checks only (no network). Override and call super() to add platform rules."""
-        return check_text(self, post) + check_images(self, post)
+        limits = self.effective_limits(config)
+        return check_text(self, post, limits) + check_images(self, post, limits)
+
+    def effective_limits(self, config: Config) -> PlatformLimits:
+        """Limits for this user's account/server. Override when they vary (e.g. Mastodon servers)."""
+        return self.limits
+
+    def count_text(self, text: str, limits: PlatformLimits) -> int:
+        """How the platform counts characters. Override for special rules (e.g. links count as 23)."""
+        return text_length(text, limits.count_method)
+
+    async def handle_oauth_callback(self, params: dict[str, str], config: Config) -> ActionResult:
+        """Finish a browser sign-in started by run_action(). Only for OAuth platforms."""
+        raise PlatformError("unknown_error", "This platform does not use browser sign-in.")
 
     async def run_action(self, action_id: str, config: Config, base_url: str) -> ActionResult:
         """Handle one of `actions`. base_url is where the local app is running."""
@@ -112,8 +125,8 @@ def text_length(text: str, method: str) -> int:
     return len(text)
 
 
-def check_text(connector: Connector, post: Post) -> list[Problem]:
-    limits = connector.limits
+def check_text(connector: Connector, post: Post, limits: PlatformLimits | None = None) -> list[Problem]:
+    limits = limits or connector.limits
     text = post.text
     if not text.strip():
         if limits.requires_text or not post.images:
@@ -122,7 +135,7 @@ def check_text(connector: Connector, post: Post) -> list[Problem]:
     limit = limits.max_chars
     if post.images and limits.max_chars_with_images is not None:
         limit = limits.max_chars_with_images
-    length = text_length(text, limits.count_method)
+    length = connector.count_text(text, limits)
     if length > limit:
         context = " when images are attached" if post.images and limit != limits.max_chars else ""
         return [
@@ -135,8 +148,8 @@ def check_text(connector: Connector, post: Post) -> list[Problem]:
     return []
 
 
-def check_images(connector: Connector, post: Post) -> list[Problem]:
-    limits = connector.limits
+def check_images(connector: Connector, post: Post, limits: PlatformLimits | None = None) -> list[Problem]:
+    limits = limits or connector.limits
     name = connector.display_name
     if not post.images:
         return []
@@ -249,6 +262,14 @@ async def safe_test_connection(connector: Connector, config: Config) -> Connecti
 async def safe_run_action(connector: Connector, action_id: str, config: Config, base_url: str) -> ActionResult:
     try:
         return await connector.run_action(action_id, config, base_url)
+    except Exception as exc:
+        err = _exception_to_error(connector, exc)
+        return ActionResult(ok=False, message=err.message)
+
+
+async def safe_oauth_callback(connector: Connector, params: dict[str, str], config: Config) -> ActionResult:
+    try:
+        return await connector.handle_oauth_callback(params, config)
     except Exception as exc:
         err = _exception_to_error(connector, exc)
         return ActionResult(ok=False, message=err.message)

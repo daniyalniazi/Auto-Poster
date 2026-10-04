@@ -131,6 +131,22 @@ LinkedIn and Facebook users create their own (free) developer app once and
 paste its ID and secret into Settings. This is the only way to stay fully local
 without a project-run server.
 
+## Browser sign-in (OAuth)
+
+Platforms that need it (Mastodon, LinkedIn, Facebook) use the standard OAuth 2.0
+authorization code flow, run locally:
+
+- The Settings page's **Connect** button calls the connector's `run_action()`, which returns
+  the platform's sign-in URL. The UI opens it in a new tab.
+- The platform redirects back to `http://127.0.0.1:<port>/oauth/<platform>/callback`, handled by
+  the connector's `handle_oauth_callback()`.
+- `services/oauth.py` issues a random, single-use, 15-minute `state` value (and a PKCE
+  verifier where supported), so a callback can only complete a sign-in the user started.
+- Tokens go straight to the credential store. The callback page only shows a success or
+  error message.
+
+Because the redirect address includes the port, changing the port means reconnecting.
+
 ## Scheduling
 
 Scheduled posts are sent by a background task inside the app (`services/scheduler.py`),

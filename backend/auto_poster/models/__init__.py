@@ -33,8 +33,9 @@ class PlatformLimits(BaseModel):
 
     max_chars: int
     max_chars_with_images: int | None = None  # e.g. Telegram caption limit
-    # "chars" = Unicode code points, "utf16" = UTF-16 code units, "graphemes" = user-perceived characters
-    count_method: Literal["chars", "utf16", "graphemes"] = "chars"
+    # "chars" = Unicode code points, "utf16" = UTF-16 code units, "graphemes" = user-perceived characters,
+    # "mastodon" = graphemes, but every link counts as 23 and @user@server mentions count as @user
+    count_method: Literal["chars", "utf16", "graphemes", "mastodon"] = "chars"
     max_images: int = 0
     max_image_bytes: int = 0
     image_formats: list[str] = []  # Pillow format names: "JPEG", "PNG", "WEBP", "GIF"
