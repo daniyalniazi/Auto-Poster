@@ -30,6 +30,7 @@ from auto_poster.models import (
     Problem,
     SetupGuide,
 )
+from auto_poster.security.credentials import get_store
 from auto_poster.security.redact import redact
 
 log = logging.getLogger(__name__)
@@ -49,6 +50,8 @@ class Connector(ABC):
     settings_fields: list[FieldSpec] = []
     post_fields: list[FieldSpec] = []
     actions: list[ActionSpec] = []  # extra Settings buttons, e.g. "Connect LinkedIn"
+    # Secrets the connector stores itself (e.g. session or OAuth tokens), never shown in the UI.
+    internal_secret_keys: set[str] = set()
     setup_guide: SetupGuide
 
     # ---- what each connector implements -------------------------------------------------
@@ -73,7 +76,21 @@ class Connector(ABC):
 
     @property
     def secret_keys(self) -> set[str]:
-        return {f.key for f in self.settings_fields if f.kind == "secret"}
+        return {f.key for f in self.settings_fields if f.kind == "secret"} | self.internal_secret_keys
+
+    def save_secret(self, key: str, value: str | None) -> None:
+        """Store (or with None, remove) one of internal_secret_keys in the credential store."""
+        store = get_store()
+        if value:
+            store.set(self.id, key, value)
+        else:
+            store.delete(self.id, key)
+
+    def save_value(self, key: str, value: str) -> None:
+        """Store a non-secret value the connector learned (e.g. an account ID) in the database."""
+        from auto_poster.services.settings import save_internal
+
+        save_internal(self, {key: value}, secret=False)
 
     def is_configured(self, config: Config) -> bool:
         return all(config.get(f.key) for f in self.settings_fields if f.required)

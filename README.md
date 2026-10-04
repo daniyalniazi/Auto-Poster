@@ -5,14 +5,14 @@ Write once. Publish to multiple social platforms.
 | Platform | Status |
 |---|---|
 | Telegram (channels and groups) | ✅ Available |
-| Bluesky | Planned |
+| Bluesky | ✅ Available |
 | Mastodon | Planned |
 | LinkedIn (personal profile) | Planned |
 | Facebook Pages | Planned |
 
 Runs locally. No account required. No cloud backend. Open source.
 
-> **Status:** early development (Phase 2 of 7). Telegram posting, history and scheduling work. See
+> **Status:** early development (Phase 3 of 7). Telegram and Bluesky posting, history and scheduling work. See
 > [docs/architecture.md](docs/architecture.md) for the plan.
 
 ## What it does
@@ -70,7 +70,7 @@ Options: `auto-poster --port 9000`, `--no-browser`, `--debug` (more detailed log
 ## Connecting platforms
 
 Open **Settings** in the app. Each platform has a short "How to connect" guide.
-More detail: [Telegram](docs/platforms/telegram.md).
+More detail: [Telegram](docs/platforms/telegram.md), [Bluesky](docs/platforms/bluesky.md).
 
 ## Not supported
 
@@ -91,6 +91,7 @@ cd frontend && npm run dev      # terminal 2, then open http://localhost:5173
 
 - How it fits together: [docs/architecture.md](docs/architecture.md)
 - Testing guide: [docs/testing.md](docs/testing.md)
+- Adding a platform: [docs/connectors.md](docs/connectors.md)
 
 ## License
 

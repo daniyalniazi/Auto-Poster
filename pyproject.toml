@@ -16,6 +16,7 @@ dependencies = [
     "keyring>=25",
     "pillow>=10.4",
     "python-multipart>=0.0.9",
+    "regex>=2024.4",  # grapheme counting (Bluesky limits are in graphemes)
 ]
 
 [project.optional-dependencies]
@@ -39,3 +40,4 @@ auto_poster = ["static/**/*"]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]

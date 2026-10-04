@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from auto_poster.connectors.base import Connector
+from auto_poster.connectors.bluesky import BlueskyConnector
 from auto_poster.connectors.telegram import TelegramConnector
 
 CONNECTORS: dict[str, Connector] = {
     connector.id: connector
     for connector in [
         TelegramConnector(),
+        BlueskyConnector(),
     ]
 }
 

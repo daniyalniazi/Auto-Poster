@@ -92,3 +92,41 @@ def cleanup_orphans(keep: set[str] | None = None) -> None:
 
 def _meta_path(image_id: str) -> Path:
     return media_dir() / f"{image_id}.json"
+
+
+def fit_to_size(image: ImageFile, max_bytes: int, max_dimension: int | None = None) -> tuple[bytes, str]:
+    """Return the image bytes, re-compressed and/or scaled down only if needed to fit a platform.
+
+    Used by connectors whose platform has a strict file-size limit (the platforms' own
+    apps do the same). Returns (bytes, mime type).
+    """
+    import io
+
+    from PIL import ImageOps
+
+    original = image.read_bytes()
+    too_big_dims = max_dimension and max(image.width, image.height) > max_dimension
+    if len(original) <= max_bytes and not too_big_dims:
+        return original, image.mime_type
+
+    with Image.open(image.path) as img:
+        img = ImageOps.exif_transpose(img)  # keep the orientation the user sees
+        has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
+        if max_dimension:
+            img.thumbnail((max_dimension, max_dimension))
+        scale = 1.0
+        for _ in range(12):
+            candidate = img if scale == 1.0 else img.resize(
+                (max(1, int(img.width * scale)), max(1, int(img.height * scale))), Image.LANCZOS
+            )
+            buffer = io.BytesIO()
+            if has_alpha:
+                candidate.save(buffer, format="PNG", optimize=True)
+                mime = "image/png"
+            else:
+                candidate.convert("RGB").save(buffer, format="JPEG", quality=85, optimize=True)
+                mime = "image/jpeg"
+            if buffer.tell() <= max_bytes:
+                return buffer.getvalue(), mime
+            scale *= 0.8
+    raise MediaError(f'"{image.filename}" could not be made small enough for this platform.')
