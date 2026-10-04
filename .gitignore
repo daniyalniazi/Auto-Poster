@@ -34,3 +34,6 @@ desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# TypeScript build cache
+*.tsbuildinfo
