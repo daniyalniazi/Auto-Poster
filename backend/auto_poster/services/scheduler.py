@@ -280,4 +280,10 @@ async def run_forever() -> None:
             await run_due()
         except Exception:
             log.exception("Scheduler check failed; will try again.")
+        try:
+            from auto_poster.services import reminders
+
+            reminders.announce_due()
+        except Exception:
+            log.exception("Reminder check failed; will try again.")
         await asyncio.sleep(CHECK_INTERVAL_SECONDS)

@@ -125,6 +125,19 @@ export interface HashtagSet {
   tags: string[];
 }
 
+export type ReminderRepeat = "once" | "weekly" | "every_2_weeks" | "monthly";
+
+export interface Reminder {
+  id: number;
+  created_at: string;
+  history_post_id: number | null;
+  label: string;
+  next_at: string;
+  repeat: ReminderRepeat;
+  status: "active" | "stopped";
+  due: boolean;
+}
+
 export interface SystemInfo {
   autostart_supported: boolean;
   autostart_enabled: boolean;
@@ -268,6 +281,16 @@ export const api = {
     form.append("file", file);
     return request<{ posts: number; images: number }>("POST", "/backup/restore", form);
   },
+  reminders: () => request<Reminder[]>("GET", "/reminders"),
+  dueReminders: () => request<Reminder[]>("GET", "/reminders/due"),
+  createReminder: (historyPostId: number, when: Date, repeat: ReminderRepeat) =>
+    request<Reminder>("POST", "/reminders", { history_post_id: historyPostId, next_at: when.toISOString(), repeat }),
+  updateReminder: (id: number, when: Date, repeat: ReminderRepeat) =>
+    request<Reminder>("PUT", `/reminders/${id}`, { next_at: when.toISOString(), repeat }),
+  advanceReminder: (id: number) => request<Reminder>("POST", `/reminders/${id}/advance`),
+  stopReminder: (id: number) => request<Reminder>("POST", `/reminders/${id}/stop`),
+  deleteReminder: (id: number) => request<{ ok: boolean }>("DELETE", `/reminders/${id}`),
+  reminderCompose: (id: number) => request<ComposeData>("GET", `/reminders/${id}/compose`),
   system: () => request<SystemInfo>("GET", "/system"),
   setAutostart: (enabled: boolean) => request<SystemInfo>("PUT", "/system/autostart", { enabled }),
   storage: () => request<{ media_bytes: number }>("GET", "/storage"),

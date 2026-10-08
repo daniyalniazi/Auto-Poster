@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ReminderBanner from "./components/ReminderBanner";
 import ComposePage from "./pages/ComposePage";
 import DraftsPage from "./pages/DraftsPage";
 import HistoryPage from "./pages/HistoryPage";
@@ -46,6 +47,7 @@ export default function App() {
         </div>
       </header>
       <main>
+        <ReminderBanner />
         {/* key: switching between "edit scheduled post" and "new post" starts a fresh form */}
         {page === "#/" && <ComposePage key={fullHash} />}
         {page === "#/drafts" && <DraftsPage />}

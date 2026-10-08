@@ -33,6 +33,9 @@ Also:
 - **Saved hashtag sets:** save hashtags you use often (e.g. "Launch") and add them with one click.
 - **Delete everywhere:** remove a post from every platform it went to, from History. (Telegram bots
   can only delete their posts within 48 hours unless they have the "Delete messages" admin permission.)
+- **Repost reminders:** in History, click **Remind me to repost** and choose when (once, weekly,
+  every 2 weeks or monthly). When the day comes, Auto Poster asks "Time to repost?" and opens the
+  post ready to review. It never reposts on its own.
 - **Backup and restore** (Settings → Your data): one file with your history, drafts, scheduled posts,
   settings and images, to keep safe or move to a new computer. Passwords and tokens are never
   included, so you reconnect platforms after restoring.

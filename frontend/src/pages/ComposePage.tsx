@@ -98,6 +98,7 @@ type Done = { kind: "published"; response: PublishResponse } | { kind: "schedule
 export default function ComposePage() {
   const editId = useMemo(() => hashParam("edit"), []);
   const fromHistoryId = useMemo(() => hashParam("from"), []);
+  const fromReminderId = useMemo(() => hashParam("reminder"), []);
   const [draftId, setDraftId] = useState<number | null>(() => hashParam("draft"));
   const [notice, setNotice] = useState<{ kind: "ok" | "warn"; text: string; undo?: boolean } | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -165,9 +166,8 @@ export default function ComposePage() {
         .then((draft) => applyRequest(draft.request, draft.images))
         .catch((e) => setLoadError(e.message))
         .finally(done);
-    } else if (fromHistoryId) {
-      api
-        .historyCompose(fromHistoryId)
+    } else if (fromHistoryId || fromReminderId) {
+      (fromReminderId ? api.reminderCompose(fromReminderId) : api.historyCompose(fromHistoryId!))
         .then(async (data) => {
           await applyRequest(data.request, data.images);
           setNotice({
@@ -343,7 +343,7 @@ export default function ComposePage() {
     setDraftId(null);
     setNotice(null);
     writeAutosave(null);
-    if (editId || fromHistoryId || hashParam("draft")) window.location.hash = "#/";
+    if (editId || fromHistoryId || fromReminderId || hashParam("draft")) window.location.hash = "#/";
   }
 
   if (loadError) return <div className="notice bad" role="alert"><p>{loadError}</p></div>;

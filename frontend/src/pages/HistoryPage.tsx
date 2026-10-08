@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import ResultList from "../components/ResultList";
+import ReminderForm from "../components/ReminderForm";
 import { TechDetails } from "../components/ResultList";
 import { api, type DeleteOutcome, type HistoryEntry, type Platform } from "../services/api";
 import { formatDate } from "../services/dates";
@@ -28,6 +29,8 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [outcomes, setOutcomes] = useState<Record<number, DeleteOutcome[]>>({});
+  const [reminderFor, setReminderFor] = useState<number | null>(null);
+  const [reminderSaved, setReminderSaved] = useState<Record<number, string>>({});
 
   useEffect(() => {
     api.platforms().then(setPlatforms).catch(() => undefined);
@@ -106,6 +109,9 @@ export default function HistoryPage() {
               )}
               <span className="spacer" />
               <a className="button" href={`#/?from=${entry.id}`}>Post again</a>
+              <button onClick={() => setReminderFor(reminderFor === entry.id ? null : entry.id)}>
+                Remind me to repost
+              </button>
               {entry.results.some((r) => r.success && !r.deleted_at) && (
                 <button className="danger" onClick={() => deleteEverywhere(entry)} disabled={deleting === entry.id}>
                   {deleting === entry.id ? "Deleting…" : "Delete everywhere"}
@@ -114,6 +120,21 @@ export default function HistoryPage() {
               <button className="link-button" onClick={() => remove(entry.id)}>Remove</button>
             </div>
             <p className="history-text">{entry.text || <span className="muted">(no text)</span>}</p>
+            {reminderFor === entry.id && (
+              <ReminderForm
+                saveLabel="Save reminder"
+                onCancel={() => setReminderFor(null)}
+                onSave={async (when, repeat) => {
+                  await api.createReminder(entry.id, when, repeat);
+                  setReminderFor(null);
+                  setReminderSaved((prev) => ({
+                    ...prev,
+                    [entry.id]: `Reminder saved for ${formatDate(when.toISOString())}. Manage it on the Scheduled page.`,
+                  }));
+                }}
+              />
+            )}
+            {reminderSaved[entry.id] && <div className="notice ok" role="status"><p>{reminderSaved[entry.id]}</p></div>}
             <ResultList results={entry.results} names={names} />
             {outcomes[entry.id]?.map((o) => (
               <div key={o.platform} className={`notice ${o.success ? "ok" : "bad"}`} role="status">

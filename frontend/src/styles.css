@@ -242,3 +242,7 @@ section.card { scroll-margin-top: 16px; }
 .chip { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
 .chip button { border: none; border-radius: 0; padding: 3px 10px; font-size: 13px; font-weight: 500; }
 .chip .chip-remove { padding: 3px 8px; color: var(--muted); border-left: 1px solid var(--border); }
+
+.reminder-banner { margin-bottom: 16px; }
+.reminder-banner .notice { margin: 0 0 8px; }
+.reminder-form { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin: 10px 0; }

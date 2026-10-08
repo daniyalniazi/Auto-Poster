@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, type Platform, type ScheduledPost } from "../services/api";
+import ReminderForm, { repeatLabel } from "../components/ReminderForm";
+import { api, type Platform, type Reminder, type ScheduledPost } from "../services/api";
 import { formatDate } from "../services/dates";
 
 const STATUS: Record<string, { text: string; kind: string }> = {
@@ -16,9 +17,12 @@ export default function ScheduledPage() {
   const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [editingReminder, setEditingReminder] = useState<number | null>(null);
 
   function reload() {
     api.scheduled().then(setPosts).catch((e) => setError(e.message));
+    api.reminders().then(setReminders).catch(() => undefined);
   }
 
   useEffect(() => {
@@ -116,6 +120,57 @@ export default function ScheduledPage() {
         </p>
       )}
       {upcoming.map(card)}
+      <h2 style={{ marginTop: 28 }}>Repost reminders</h2>
+      {reminders.length === 0 && (
+        <p className="empty">
+          No reminders. In <a href="#/history">History</a>, click “Remind me to repost” on any post.
+        </p>
+      )}
+      {reminders.map((r) => (
+        <article className="card" key={r.id}>
+          <div className="row">
+            <strong>{r.status === "active" ? formatDate(r.next_at) : "Stopped"}</strong>
+            <span className={`badge ${r.due ? "warn" : ""}`}>
+              {r.due ? "Due now" : r.status === "active" ? repeatLabel(r.repeat) : "Not active"}
+            </span>
+            <span className="spacer" />
+          </div>
+          <p className="history-text">{r.label}</p>
+          {editingReminder === r.id ? (
+            <ReminderForm
+              initialDate={new Date(r.next_at)}
+              initialRepeat={r.repeat}
+              saveLabel="Save changes"
+              onCancel={() => setEditingReminder(null)}
+              onSave={async (when, repeat) => {
+                await api.updateReminder(r.id, when, repeat);
+                setEditingReminder(null);
+                reload();
+              }}
+            />
+          ) : (
+            <div className="row">
+              <button onClick={async () => {
+                if (r.due) await api.advanceReminder(r.id); // reposting now counts as this reminder's turn
+                window.location.hash = `#/?reminder=${r.id}`;
+              }}>
+                Repost now…
+              </button>
+              <button onClick={() => setEditingReminder(r.id)}>{r.status === "active" ? "Change" : "Restart"}</button>
+              {r.status === "active" && (
+                <button onClick={() => act(r.id, () => api.stopReminder(r.id))}>Stop reminding</button>
+              )}
+              <span className="spacer" />
+              <button className="danger" onClick={() => {
+                if (window.confirm("Delete this reminder?")) act(r.id, () => api.deleteReminder(r.id));
+              }}>
+                Delete
+              </button>
+            </div>
+          )}
+        </article>
+      ))}
+
       {finished.length > 0 && (
         <>
           <h2 style={{ marginTop: 28 }}>Finished</h2>

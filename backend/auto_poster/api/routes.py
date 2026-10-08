@@ -16,7 +16,18 @@ from auto_poster.connectors.base import safe_run_action, safe_test_connection
 from auto_poster.connectors.registry import CONNECTORS, get_connector
 from auto_poster.models import ActionResult, ConnectionStatus, ImageInfo, PostRequest, PostResult, Problem
 from auto_poster.security.credentials import get_store
-from auto_poster.services import backup, deleter, drafts, hashtag_sets, history, media, media_usage, publisher, scheduler
+from auto_poster.services import (
+    backup,
+    deleter,
+    drafts,
+    hashtag_sets,
+    history,
+    media,
+    media_usage,
+    publisher,
+    reminders,
+    scheduler,
+)
 from auto_poster.services import settings as settings_service
 
 router = APIRouter(prefix="/api")
@@ -399,3 +410,79 @@ def set_autostart(body: AutostartRequest, request: Request) -> dict:
     except OSError as exc:
         raise HTTPException(500, f"Couldn't change the startup setting: {exc}") from None
     return system_info()
+
+
+# ---- repost reminders -------------------------------------------------------------------------
+
+
+class ReminderRequest(BaseModel):
+    history_post_id: int
+    next_at: datetime
+    repeat: reminders.Repeat
+
+
+class ReminderUpdate(BaseModel):
+    next_at: datetime
+    repeat: reminders.Repeat
+
+
+def _reminder_or_404(reminder_id: int) -> reminders.Reminder:
+    reminder = reminders.get(reminder_id)
+    if reminder is None:
+        raise HTTPException(404, "That reminder no longer exists.")
+    return reminder
+
+
+@router.get("/reminders")
+def list_reminders() -> list[reminders.Reminder]:
+    return reminders.list_all()
+
+
+@router.get("/reminders/due")
+def due_reminders() -> list[reminders.Reminder]:
+    return reminders.due()
+
+
+@router.post("/reminders")
+def create_reminder(body: ReminderRequest) -> reminders.Reminder:
+    try:
+        return reminders.create(body.history_post_id, body.next_at, body.repeat)
+    except reminders.ReminderError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+@router.put("/reminders/{reminder_id}")
+def update_reminder(reminder_id: int, body: ReminderUpdate) -> reminders.Reminder:
+    _reminder_or_404(reminder_id)
+    try:
+        return reminders.update(reminder_id, body.next_at, body.repeat)
+    except reminders.ReminderError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+@router.post("/reminders/{reminder_id}/advance")
+def advance_reminder(reminder_id: int) -> reminders.Reminder:
+    """Repost or Skip: move the reminder to its next date (or stop a one-time reminder)."""
+    _reminder_or_404(reminder_id)
+    return reminders.advance(reminder_id)
+
+
+@router.post("/reminders/{reminder_id}/stop")
+def stop_reminder(reminder_id: int) -> reminders.Reminder:
+    _reminder_or_404(reminder_id)
+    return reminders.stop(reminder_id)
+
+
+@router.delete("/reminders/{reminder_id}")
+def delete_reminder(reminder_id: int) -> dict:
+    reminders.delete(reminder_id)
+    return {"ok": True}
+
+
+@router.get("/reminders/{reminder_id}/compose")
+def reminder_compose(reminder_id: int) -> ComposeData:
+    found = reminders.compose(reminder_id)
+    if found is None:
+        raise HTTPException(404, "That reminder no longer exists.")
+    request, images, missing = found
+    return ComposeData(request=request, images=images, missing_images=missing)
