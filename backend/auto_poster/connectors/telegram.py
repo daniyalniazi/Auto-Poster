@@ -215,6 +215,27 @@ class TelegramConnector(Connector):
 
     # ---- connector interface -------------------------------------------------------------
 
+    can_delete = True
+
+    async def delete_post(self, post_id: str, config: Config) -> None:
+        chat_id, message_ids = parse_post_id(post_id, config.get("chat_id", "").strip())
+        async with self.http() as client:
+            try:
+                await self._call(client, config["bot_token"].strip(), "deleteMessages",
+                                 {"chat_id": chat_id, "message_ids": message_ids})
+            except PlatformError as err:
+                if "not found" in (err.technical_details or "").lower():
+                    return  # already deleted
+                if "can't be deleted" in (err.technical_details or "").lower() or err.error_code == "validation_failed":
+                    raise PlatformError(
+                        "missing_permission",
+                        "Telegram didn't allow deleting this post. Bots can only delete their posts within 48 hours, "
+                        "unless the bot is an administrator with the “Delete messages” permission. You can still "
+                        "delete it yourself in Telegram.",
+                        err.technical_details,
+                    ) from None
+                raise
+
     async def test_connection(self, config: Config) -> ConnectionStatus:
         token, chat_id = config["bot_token"].strip(), config["chat_id"].strip()
         async with self.http() as client:
@@ -297,13 +318,21 @@ class TelegramConnector(Connector):
                 )
                 message = messages[0]
 
+        # "chat:id1,id2" so the post can be deleted later even if the settings change.
+        ids = [str(m["message_id"]) for m in messages] if post.images and len(post.images) > 1 \
+            else [str(message["message_id"])]
         return PostResult(
             platform=self.id,
             success=True,
-            post_id=str(message["message_id"]),
+            post_id=f"{message.get('chat', {}).get('id', '')}:{','.join(ids)}",
             post_url=message_url(message),
             message="Posted to Telegram.",
         )
+
+
+def parse_post_id(post_id: str, fallback_chat: str) -> tuple[str, list[int]]:
+    chat, _, ids = post_id.rpartition(":")
+    return (chat or fallback_chat), [int(i) for i in ids.split(",") if i.strip()]
 
 
 def message_url(message: dict) -> str | None:

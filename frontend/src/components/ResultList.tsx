@@ -31,12 +31,16 @@ export default function ResultList({ results, names }: Props) {
           </span>
           <div className="spacer">
             <strong>{names[r.platform] ?? r.platform}</strong>{" "}
-            <span className={`badge ${r.success ? "ok" : "bad"}`}>{r.success ? "Posted" : "Failed"}</span>
+            {r.deleted_at ? (
+              <span className="badge">Deleted</span>
+            ) : (
+              <span className={`badge ${r.success ? "ok" : "bad"}`}>{r.success ? "Posted" : "Failed"}</span>
+            )}
             <div>
               {r.message}
               {!r.success && retryText(r.retry_after)}
             </div>
-            {r.post_url && (
+            {r.post_url && !r.deleted_at && (
               <a href={r.post_url} target="_blank" rel="noreferrer">
                 View post
               </a>

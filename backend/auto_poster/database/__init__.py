@@ -96,6 +96,9 @@ MIGRATIONS = [
         notified_at TEXT                    -- when the current due date was announced
     );
     """,
+    """
+    ALTER TABLE post_results ADD COLUMN deleted_at TEXT;  -- set by "Delete everywhere"
+    """,
 ]
 
 

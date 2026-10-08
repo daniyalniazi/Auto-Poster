@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ResultList from "../components/ResultList";
-import { api, type HistoryEntry, type Platform } from "../services/api";
+import { TechDetails } from "../components/ResultList";
+import { api, type DeleteOutcome, type HistoryEntry, type Platform } from "../services/api";
 import { formatDate } from "../services/dates";
 
 const STATUS_LABELS: Record<string, { text: string; kind: string }> = {
@@ -25,6 +26,8 @@ export default function HistoryPage() {
   const [filter, setFilter] = useState("");
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [outcomes, setOutcomes] = useState<Record<number, DeleteOutcome[]>>({});
 
   useEffect(() => {
     api.platforms().then(setPlatforms).catch(() => undefined);
@@ -48,13 +51,29 @@ export default function HistoryPage() {
   }
 
   async function remove(id: number) {
-    if (!window.confirm("Remove this entry from your history? This does not delete the posts on the platforms."))
+    if (!window.confirm("Remove this entry from your history? The posts stay on the platforms (use “Delete everywhere” to remove them)."))
       return;
     await api.deleteHistory(id);
     setEntries((prev) => prev?.filter((e) => e.id !== id) ?? null);
   }
 
   const names = Object.fromEntries(platforms.map((p) => [p.id, p.name]));
+
+  async function deleteEverywhere(entry: HistoryEntry) {
+    const live = entry.results.filter((r) => r.success && !r.deleted_at).map((r) => names[r.platform] ?? r.platform);
+    if (!window.confirm(`Delete this post from ${live.join(", ")}? This can't be undone.`)) return;
+    setDeleting(entry.id);
+    try {
+      const result = await api.deleteEverywhere(entry.id);
+      setOutcomes((prev) => ({ ...prev, [entry.id]: result }));
+      const refreshed = await api.history(Math.max(entries?.length ?? PAGE_SIZE, PAGE_SIZE), 0, filter);
+      setEntries(refreshed);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   return (
     <>
@@ -87,10 +106,21 @@ export default function HistoryPage() {
               )}
               <span className="spacer" />
               <a className="button" href={`#/?from=${entry.id}`}>Post again</a>
+              {entry.results.some((r) => r.success && !r.deleted_at) && (
+                <button className="danger" onClick={() => deleteEverywhere(entry)} disabled={deleting === entry.id}>
+                  {deleting === entry.id ? "Deleting…" : "Delete everywhere"}
+                </button>
+              )}
               <button className="link-button" onClick={() => remove(entry.id)}>Remove</button>
             </div>
             <p className="history-text">{entry.text || <span className="muted">(no text)</span>}</p>
             <ResultList results={entry.results} names={names} />
+            {outcomes[entry.id]?.map((o) => (
+              <div key={o.platform} className={`notice ${o.success ? "ok" : "bad"}`} role="status">
+                <p>{o.message}</p>
+                {!o.success && <TechDetails text={o.technical_details} />}
+              </div>
+            ))}
             {notSelected.length > 0 && (
               <p className="help">Not selected: {notSelected.map((p) => p.name).join(", ")}</p>
             )}

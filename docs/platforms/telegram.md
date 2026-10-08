@@ -51,6 +51,13 @@ Telegram also limits how fast a bot can post (roughly 20 messages per minute in 
 group). If Telegram answers "Too Many Requests", Auto Poster records the failure with the
 waiting time Telegram gives and does **not** retry automatically.
 
+## Deleting posts
+
+**Delete everywhere** in History uses `deleteMessages` (all photos of an album are removed).
+Telegram only lets bots delete their messages **within 48 hours**, unless the bot is an
+administrator with the **Delete messages** permission in that channel or group. Older posts
+must then be deleted in Telegram itself; Auto Poster says so if it happens.
+
 ## Common problems
 
 | Message | What to do |

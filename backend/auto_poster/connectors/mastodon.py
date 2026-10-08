@@ -378,6 +378,16 @@ class MastodonConnector(Connector):
             raise PlatformError("invalid_media", "Mastodon took too long to process an image. Try again.")
         return media["id"]
 
+    can_delete = True
+
+    async def delete_post(self, post_id: str, config: Config) -> None:
+        server = normalize_server(config["server"])
+        async with self.http() as client:
+            response = await client.delete(f"https://{server}/api/v1/statuses/{post_id}",
+                                           headers={"Authorization": f"Bearer {config['access_token'].strip()}"})
+        if response.status_code not in (200, 404):  # 404: already deleted
+            raise self._error(response, "delete status")
+
     async def post(self, post: Post, options: Options, config: Config) -> PostResult:
         server = normalize_server(config["server"])
         token = config["access_token"].strip()

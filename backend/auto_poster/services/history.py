@@ -72,6 +72,7 @@ def _results(conn, post_id: int) -> list[PostResult]:
             technical_details=row["technical_details"],
             retry_after=row["retry_after"],
             sent_text=row["sent_text"],
+            deleted_at=row["deleted_at"],
         )
         for row in rows
     ]
@@ -119,6 +120,12 @@ def get_entry(post_id: int) -> HistoryEntry | None:
     with database.session() as conn:
         row = conn.execute("SELECT * FROM posts WHERE id = ?", (post_id,)).fetchone()
         return _entry(conn, row) if row else None
+
+
+def mark_deleted(post_id: int, platform: str) -> None:
+    with database.session() as conn:
+        conn.execute("UPDATE post_results SET deleted_at = ? WHERE post_id = ? AND platform = ? AND success = 1",
+                     (now_iso(), post_id, platform))
 
 
 def get_compose(post_id: int) -> PostRequest | None:

@@ -52,6 +52,14 @@ export interface PostResult {
   technical_details: string | null;
   retry_after: number | null;
   sent_text?: string | null;
+  deleted_at?: string | null;
+}
+
+export interface DeleteOutcome {
+  platform: string;
+  success: boolean;
+  message: string;
+  technical_details: string | null;
 }
 
 export interface ConnectionStatus {
@@ -223,6 +231,7 @@ export const api = {
   history: (limit = 50, offset = 0, status = "") =>
     request<HistoryEntry[]>("GET", `/history?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ""}`),
   deleteHistory: (id: number) => request<{ ok: boolean }>("DELETE", `/history/${id}`),
+  deleteEverywhere: (id: number) => request<DeleteOutcome[]>("POST", `/history/${id}/delete-everywhere`),
   historyCompose: (id: number) => request<ComposeData>("GET", `/history/${id}/compose`),
   drafts: () => request<Draft[]>("GET", "/drafts"),
   getDraft: (id: number) => request<Draft>("GET", `/drafts/${id}`),

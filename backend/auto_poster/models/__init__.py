@@ -139,6 +139,7 @@ class PostResult(BaseModel):
     technical_details: str | None = None  # redacted; shown under "Details"
     retry_after: int | None = None  # seconds, when the platform says so
     sent_text: str | None = None  # the exact text this platform was given (filled in by the publisher)
+    deleted_at: str | None = None  # when the user deleted it from the platform via Auto Poster
 
 
 class ConnectionStatus(BaseModel):

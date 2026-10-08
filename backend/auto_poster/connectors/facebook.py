@@ -171,6 +171,8 @@ class FacebookConnector(Connector):
         proof = {"appsecret_proof": self._proof(token, config["app_secret"].strip())}
         if method == "GET":
             response = await client.get(f"{GRAPH}/{path}", params={**proof, **(data or {})}, headers=headers)
+        elif method == "DELETE":
+            response = await client.delete(f"{GRAPH}/{path}", params=proof, headers=headers)
         else:
             response = await client.post(f"{GRAPH}/{path}", data={**proof, **(data or {})}, files=files,
                                          headers=headers)
@@ -308,6 +310,21 @@ class FacebookConnector(Connector):
             page = await self._graph(client, "GET", page_id, token, config, {"fields": "id,name,link"})
         return ConnectionStatus(ok=True, account_name=page.get("name"),
                                 message=f"Connected. Posts will go to the Page “{page.get('name')}”.")
+
+    can_delete = True
+
+    async def delete_post(self, post_id: str, config: Config) -> None:
+        page_id = post_id.split("_", 1)[0]
+        token = self._page_token(config, page_id)
+        if not token:
+            raise PlatformError("not_configured", "This post was made on a Facebook Page that is no longer connected.")
+        async with self.http() as client:
+            try:
+                await self._graph(client, "DELETE", post_id, token, config)
+            except PlatformError as err:
+                if "does not exist" in (err.technical_details or ""):
+                    return  # already deleted
+                raise
 
     async def post(self, post: Post, options: Options, config: Config) -> PostResult:
         page_id = config["page_id"]

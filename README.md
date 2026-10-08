@@ -31,6 +31,8 @@ Also:
 - **Drafts:** save a post to finish later. Unsaved work is restored if you close the tab by accident.
 - **Post again:** reuse any post from History, including its images.
 - **Saved hashtag sets:** save hashtags you use often (e.g. "Launch") and add them with one click.
+- **Delete everywhere:** remove a post from every platform it went to, from History. (Telegram bots
+  can only delete their posts within 48 hours unless they have the "Delete messages" admin permission.)
 
 ## Your data stays with you
 

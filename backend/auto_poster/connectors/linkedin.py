@@ -290,6 +290,17 @@ class LinkedInConnector(Connector):
             raise self._error(upload, "upload")
         return value["image"]
 
+    can_delete = True
+
+    async def delete_post(self, post_id: str, config: Config) -> None:
+        async with self.http() as client:
+            response = await client.delete(
+                f"{API_BASE}/rest/posts/{quote(post_id, safe='')}",
+                headers={**self._headers(config["access_token"]), "X-RestLi-Method": "DELETE"},
+            )
+        if response.status_code not in (200, 204, 404):  # deleting twice is fine
+            raise self._error(response, "delete post")
+
     async def post(self, post: Post, options: Options, config: Config) -> PostResult:
         token = config["access_token"]
         author = f"urn:li:person:{config['person_id']}"

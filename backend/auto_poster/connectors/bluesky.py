@@ -314,6 +314,15 @@ class BlueskyConnector(Connector):
                            "features": [{"$type": "app.bsky.richtext.facet#tag", "tag": tag}]})
         return facets
 
+    can_delete = True
+
+    async def delete_post(self, post_id: str, config: Config) -> None:
+        # post_id is the at:// URI: at://<did>/app.bsky.feed.post/<rkey>
+        repo, collection, rkey = post_id.removeprefix("at://").split("/", 2)
+        async with self.http() as client:
+            await self._xrpc(client, config, "POST", "com.atproto.repo.deleteRecord",
+                             json={"repo": repo, "collection": collection, "rkey": rkey})
+
     async def post(self, post: Post, options: Options, config: Config) -> PostResult:
         async with self.http() as client:
             session = await self._session(client, config)

@@ -103,6 +103,13 @@ class Connector(ABC):
         """Finish a browser sign-in started by run_action(). Only for OAuth platforms."""
         raise PlatformError("unknown_error", "This platform does not use browser sign-in.")
 
+    can_delete: bool = False
+
+    async def delete_post(self, post_id: str, config: Config) -> None:
+        """Delete a post this connector published (post_id as returned in PostResult).
+        Raise PlatformError on failure. A post that no longer exists counts as deleted."""
+        raise PlatformError("unknown_error", f"{self.display_name} posts can't be deleted from Auto Poster.")
+
     async def run_action(self, action_id: str, config: Config, base_url: str) -> ActionResult:
         """Handle one of `actions`. base_url is where the local app is running."""
         raise PlatformError("unknown_error", "This action is not available.")
@@ -295,6 +302,17 @@ async def safe_oauth_callback(connector: Connector, params: dict[str, str], conf
     except Exception as exc:
         err = _exception_to_error(connector, exc)
         return ActionResult(ok=False, message=err.message)
+
+
+async def safe_delete(connector: Connector, post_id: str, config: Config) -> PlatformError | None:
+    """Returns None if the post was deleted (or was already gone), else the error."""
+    try:
+        await connector.delete_post(post_id, config)
+        return None
+    except Exception as exc:
+        err = _exception_to_error(connector, exc)
+        err.technical_details = redact(err.technical_details)
+        return err
 
 
 async def safe_post(connector: Connector, post: Post, options: Options, config: Config) -> PostResult:

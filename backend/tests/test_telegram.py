@@ -136,7 +136,7 @@ async def test_post_text():
     route = respx.post(f"{API}/sendMessage").mock(return_value=ok(MESSAGE))
     result = await safe_post(telegram, Post(text="Hello *world*", images=[]), {}, CONFIG)
     assert result.success
-    assert result.post_id == "42"
+    assert result.post_id == "-1001234567890:42"
     assert result.post_url == "https://t.me/testchannel/42"
     sent = json.loads(route.calls[0].request.content)
     assert sent["text"] == "Hello *world*"
@@ -158,7 +158,7 @@ async def test_post_single_image(make_image):
 async def test_post_album(make_image):
     route = respx.post(f"{API}/sendMediaGroup").mock(return_value=ok([MESSAGE, {**MESSAGE, "message_id": 43}]))
     result = await safe_post(telegram, Post(text="Album", images=[make_image(), make_image("JPEG")]), {}, CONFIG)
-    assert result.success and result.post_id == "42"
+    assert result.success and result.post_id == "-1001234567890:42,43"
     body = route.calls[0].request.content
     assert b"attach://photo0" in body and b"attach://photo1" in body
 

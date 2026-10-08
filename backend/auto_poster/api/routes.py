@@ -12,7 +12,7 @@ from auto_poster.connectors.base import safe_run_action, safe_test_connection
 from auto_poster.connectors.registry import CONNECTORS, get_connector
 from auto_poster.models import ActionResult, ConnectionStatus, ImageInfo, PostRequest, PostResult, Problem
 from auto_poster.security.credentials import get_store
-from auto_poster.services import drafts, hashtag_sets, history, media, media_usage, publisher, scheduler
+from auto_poster.services import deleter, drafts, hashtag_sets, history, media, media_usage, publisher, scheduler
 from auto_poster.services import settings as settings_service
 
 router = APIRouter(prefix="/api")
@@ -317,3 +317,14 @@ def create_hashtag_set(body: HashtagSetRequest) -> hashtag_sets.HashtagSet:
 def delete_hashtag_set(set_id: int) -> dict:
     hashtag_sets.delete(set_id)
     return {"ok": True}
+
+
+# ---- delete everywhere ------------------------------------------------------------------------
+
+
+@router.post("/history/{post_id}/delete-everywhere")
+async def delete_everywhere(post_id: int) -> list[deleter.DeleteOutcome]:
+    outcomes = await deleter.delete_everywhere(post_id)
+    if outcomes is None:
+        raise HTTPException(404, "That post is no longer in your history.")
+    return outcomes
