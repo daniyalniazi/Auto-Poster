@@ -368,3 +368,34 @@ class CleanupRequest(BaseModel):
 @router.post("/storage/cleanup")
 def storage_cleanup(body: CleanupRequest) -> dict:
     return backup.remove_old_images(max(body.days, 0))
+
+
+# ---- desktop: start with the computer ---------------------------------------------------------
+
+
+@router.get("/system")
+def system_info() -> dict:
+    from auto_poster import desktop
+
+    return {
+        "autostart_supported": desktop.autostart_supported(),
+        "autostart_enabled": desktop.autostart_supported() and desktop.autostart_enabled(),
+        "tray": desktop.tray_active(),
+    }
+
+
+class AutostartRequest(BaseModel):
+    enabled: bool
+
+
+@router.put("/system/autostart")
+def set_autostart(body: AutostartRequest, request: Request) -> dict:
+    from auto_poster import desktop
+
+    if not desktop.autostart_supported():
+        raise HTTPException(400, "Starting with the computer isn't supported on this system.")
+    try:
+        desktop.set_autostart(body.enabled, getattr(request.app.state, "port_arg", None))
+    except OSError as exc:
+        raise HTTPException(500, f"Couldn't change the startup setting: {exc}") from None
+    return system_info()

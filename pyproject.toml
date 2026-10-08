@@ -17,6 +17,7 @@ dependencies = [
     "pillow>=10.4",
     "python-multipart>=0.0.9",
     "regex>=2024.4",  # grapheme counting (Bluesky limits are in graphemes)
+    "pystray>=0.19",  # system tray icon (LGPL-3.0, used as an unmodified library)
 ]
 
 [project.optional-dependencies]

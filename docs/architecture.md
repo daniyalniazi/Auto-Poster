@@ -162,6 +162,17 @@ authorization code flow, run locally:
 
 Because the redirect address includes the port, changing the port means reconnecting.
 
+## Desktop integration
+
+`desktop.py` adds an optional system tray icon (pystray, LGPL-3.0, used unmodified) with
+**Open** and **Quit**. When the tray is used, the web server runs in a background thread and
+the tray owns the main thread. The packaged Windows app is built `--windowed` (no console) and
+logs to `<data folder>/logs/auto-poster.log` (rotating, redacted).
+
+**Start when I log in** (Settings) registers `AutoPoster --background` in
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on Windows, or writes
+`~/.config/autostart/auto-poster.desktop` on Linux. `--background` starts without opening the browser.
+
 ## Scheduling
 
 Scheduled posts are sent by a background task inside the app (`services/scheduler.py`),

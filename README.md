@@ -60,9 +60,12 @@ Download the latest version from the [Releases page](https://github.com/daniyaln
 - **Linux:** `AutoPoster-linux-x64`. Make it executable and run it:
   `chmod +x AutoPoster-linux-x64 && ./AutoPoster-linux-x64`
 
-A small window shows that Auto Poster is running, and your browser opens it at
-`http://127.0.0.1:8765`. **Keep that window open** while you use the app (and for scheduled posts
-to be sent). Close it to stop Auto Poster. Starting it again while it's running just reopens the browser tab.
+Your browser opens Auto Poster at `http://127.0.0.1:8765`, and an icon appears next to the clock
+(system tray). Auto Poster keeps running there, so scheduled posts and reminders work. Use the
+icon to open it again or **Quit**. Starting it again while it's running just reopens the browser tab.
+
+**Tip:** in Settings, switch on **Start Auto Poster when I log in** so you never have to remember to open it.
+On some Linux desktops (e.g. GNOME) tray icons need an extension; Auto Poster works without it.
 
 ### From source
 
@@ -81,7 +84,9 @@ pip install -e .
 auto-poster
 ```
 
-Options: `auto-poster --port 9000`, `--no-browser`, `--debug` (more detailed logs; secrets stay hidden).
+Options: `auto-poster --port 9000`, `--no-browser`, `--tray` (show the tray icon; the packaged app does this by
+default), `--debug` (more detailed logs; secrets stay hidden). Logs are also written to the `logs` folder
+inside the data folder.
 
 ## Connecting platforms
 

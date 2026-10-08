@@ -125,6 +125,12 @@ export interface HashtagSet {
   tags: string[];
 }
 
+export interface SystemInfo {
+  autostart_supported: boolean;
+  autostart_enabled: boolean;
+  tray: boolean;
+}
+
 export interface PublishResponse {
   history_id: number;
   status: string;
@@ -262,6 +268,8 @@ export const api = {
     form.append("file", file);
     return request<{ posts: number; images: number }>("POST", "/backup/restore", form);
   },
+  system: () => request<SystemInfo>("GET", "/system"),
+  setAutostart: (enabled: boolean) => request<SystemInfo>("PUT", "/system/autostart", { enabled }),
   storage: () => request<{ media_bytes: number }>("GET", "/storage"),
   cleanupStorage: (days: number) => request<{ freed_bytes: number }>("POST", "/storage/cleanup", { days }),
   // <img> tags can't send the session header, so images are fetched and shown as blob URLs.

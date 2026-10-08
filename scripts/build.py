@@ -44,6 +44,9 @@ def build_binary() -> None:
         # Loaded dynamically, so PyInstaller can't see them on its own:
         "--collect-submodules", "uvicorn",
         "--collect-submodules", "keyring.backends",
+        "--collect-submodules", "pystray",
+        # Windows: no console window; logs go to the data folder and the app lives in the tray.
+        *(["--windowed"] if sys.platform == "win32" else []),
         "--hidden-import", "auto_poster.main",
         str(ROOT / "scripts" / "launcher.py"),
     )

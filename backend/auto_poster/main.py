@@ -17,7 +17,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from auto_poster import database
+from auto_poster import database, desktop
 from auto_poster.api.routes import router
 from auto_poster.config import DEFAULT_PORT, data_dir
 from auto_poster.connectors.base import safe_oauth_callback
@@ -108,7 +108,7 @@ def _is_auto_poster(url: str) -> bool:
 
 def _pause_if_double_clicked() -> None:
     """Keep the window open long enough to read the error when started by double-click."""
-    if getattr(sys, "frozen", False):
+    if getattr(sys, "frozen", False) and sys.stdin is not None and sys.stdin.isatty():
         try:
             input("Press Enter to close this window.")
         except EOFError:
@@ -121,14 +121,18 @@ def run() -> None:
     parser.add_argument("--no-browser", action="store_true", help="Don't open the browser automatically.")
     parser.add_argument("--dev", action="store_true", help="Allow the Vite dev server (port 5173).")
     parser.add_argument("--debug", action="store_true", help="More detailed logs (secrets are still hidden).")
+    parser.add_argument("--background", action="store_true",
+                        help="Start quietly (used when starting with the computer): no browser, tray icon only.")
+    parser.add_argument("--tray", action="store_true", help="Show a system tray icon (default for the packaged app).")
+    parser.add_argument("--no-tray", action="store_true", help="Don't show a system tray icon.")
     args = parser.parse_args()
 
-    setup_logging(debug=args.debug)
+    setup_logging(debug=args.debug, log_file=data_dir() / "logs" / "auto-poster.log")
     url = f"http://127.0.0.1:{args.port}/"
     if not _port_free(args.port):
         if _is_auto_poster(url):
             log.info("Auto Poster is already running. Opening it in your browser.")
-            if not args.no_browser:
+            if not (args.no_browser or args.background):
                 webbrowser.open(url)
             return
         log.error("Port %s is used by another program. Start Auto Poster with --port <another number>.", args.port)
@@ -138,12 +142,32 @@ def run() -> None:
     import uvicorn
 
     app = create_app(args.port, dev=args.dev)
+    app.state.port_arg = args.port if args.port != DEFAULT_PORT else None
     log.info("Auto Poster is running at %s (data folder: %s)", url, data_dir())
-    log.info("Keep this window open while using the app, and for scheduled posts to be sent. "
-             "Press Ctrl+C to stop.")
-    if not args.no_browser:
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning", log_config=None)
+    if not (args.no_browser or args.background):
+        desktop.open_browser_later(url)
+
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=args.port, log_level="warning",
+                                           log_config=None))
+    # Tray by default for the packaged app and background starts; a terminal run keeps Ctrl+C working.
+    use_tray = not args.no_tray and (getattr(sys, "frozen", False) or args.background or args.tray)
+    if not use_tray:
+        log.info("Keep this window open while using the app. Press Ctrl+C to stop.")
+        server.run()
+        return
+
+    # The tray icon needs the main thread, so the web server runs alongside it.
+    server_thread = threading.Thread(target=server.run, name="web-server", daemon=True)
+    server_thread.start()
+    if desktop.run_tray(url, on_quit=lambda: setattr(server, "should_exit", True)):
+        server_thread.join(timeout=10)
+        return
+    log.info("Running without a tray icon. Keep this window open while using the app. Press Ctrl+C to stop.")
+    try:
+        server_thread.join()
+    except KeyboardInterrupt:
+        server.should_exit = True
+        server_thread.join(timeout=10)
 
 
 if __name__ == "__main__":

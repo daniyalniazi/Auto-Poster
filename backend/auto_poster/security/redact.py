@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import sys
 import threading
 
 MASK = "***"
@@ -59,12 +60,22 @@ class RedactingFilter(logging.Filter):
         return True
 
 
-def setup_logging(debug: bool = False) -> None:
-    handler = logging.StreamHandler()
-    handler.addFilter(RedactingFilter())
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+def setup_logging(debug: bool = False, log_file=None) -> None:
+    """Log to the console (when there is one) and, if given, to a rotating file. Both redacted."""
+    from logging.handlers import RotatingFileHandler
+
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    handlers: list[logging.Handler] = []
+    if sys.stderr is not None:  # the packaged Windows app has no console
+        handlers.append(logging.StreamHandler())
+    if log_file is not None:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        handlers.append(RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=3, encoding="utf-8"))
+    for handler in handlers:
+        handler.addFilter(RedactingFilter())
+        handler.setFormatter(formatter)
     root = logging.getLogger()
-    root.handlers[:] = [handler]
+    root.handlers[:] = handlers
     root.setLevel(logging.DEBUG if debug else logging.INFO)
     # httpx logs full request URLs at INFO. Telegram puts the bot token in the URL path,
     # so keep httpx quiet unless debugging (and even then the filter masks tokens).
