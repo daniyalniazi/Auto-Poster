@@ -36,7 +36,12 @@ class ScheduledPost(BaseModel):
     created_at: str
     updated_at: str
     scheduled_at: str
+    mode: str
+    title: str
     text: str
+    hashtags: str
+    link: str
+    overrides: dict[str, str]
     images: list[ImageInfo]
     alt_texts: dict[str, str]
     platforms: list[str]
@@ -71,8 +76,21 @@ def _image_infos(image_ids: list[str]) -> list[ImageInfo]:
     return infos
 
 
+COMPOSE_FIELDS = ("mode", "title", "hashtags", "link", "overrides")
+
+
+def _compose_json(request: PostRequest) -> str:
+    return json.dumps({name: getattr(request, name) for name in COMPOSE_FIELDS})
+
+
+def _compose(row) -> dict:
+    data = json.loads(row["compose"] or "{}")
+    return {"mode": "quick", "title": "", "hashtags": "", "link": "", "overrides": {}, **data}
+
+
 def _from_row(row) -> ScheduledPost:
     return ScheduledPost(
+        **_compose(row),
         id=row["id"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -91,6 +109,7 @@ def _from_row(row) -> ScheduledPost:
 
 def _request_from_row(row) -> PostRequest:
     return PostRequest(
+        **_compose(row),
         text=row["text"],
         platforms=json.loads(row["platforms"]),
         image_ids=json.loads(row["image_ids"]),
@@ -132,9 +151,10 @@ def create(request: PostRequest, when: datetime) -> ScheduledPost:
     with database.session() as conn:
         cursor = conn.execute(
             "INSERT INTO scheduled_posts (created_at, updated_at, scheduled_at, text, image_ids, alt_texts, "
-            "platforms, options, enabled, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'scheduled')",
+            "platforms, options, compose, enabled, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'scheduled')",
             (now, now, to_utc_iso(when), request.text, json.dumps(request.image_ids),
-             json.dumps(request.alt_texts), json.dumps(request.platforms), json.dumps(request.options)),
+             json.dumps(request.alt_texts), json.dumps(request.platforms), json.dumps(request.options),
+             _compose_json(request)),
         )
         post_id = cursor.lastrowid
     return get(post_id)
@@ -150,11 +170,11 @@ def update(post_id: int, request: PostRequest, when: datetime) -> ScheduledPost:
     with database.session() as conn:
         updated = conn.execute(
             "UPDATE scheduled_posts SET updated_at = ?, scheduled_at = ?, text = ?, image_ids = ?, alt_texts = ?, "
-            "platforms = ?, options = ?, status = 'scheduled', attempt = attempt + 1, note = NULL "
+            "platforms = ?, options = ?, compose = ?, status = 'scheduled', attempt = attempt + 1, note = NULL "
             f"WHERE id = ? AND status IN ({','.join('?' * len(EDITABLE))})",
             (history.now_iso(), to_utc_iso(when), request.text, json.dumps(request.image_ids),
              json.dumps(request.alt_texts), json.dumps(request.platforms), json.dumps(request.options),
-             post_id, *EDITABLE),
+             _compose_json(request), post_id, *EDITABLE),
         ).rowcount
     if not updated:
         raise ScheduleError("This post started sending while you were editing it.")

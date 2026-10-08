@@ -33,10 +33,13 @@ DEV_FRONTEND_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
 
 def static_dir() -> Path | None:
-    """Built frontend: bundled inside the package, or frontend/dist in a source checkout."""
-    base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent))
-    for candidate in (base / "auto_poster" / "static", Path(__file__).parent / "static",
-                      Path(__file__).resolve().parents[2] / "frontend" / "dist"):
+    """Built frontend. In the packaged app it's bundled inside; in a source checkout the fresh
+    frontend/dist wins over any older copy that scripts/build.py left in the package."""
+    if hasattr(sys, "_MEIPASS"):
+        candidates = [Path(sys._MEIPASS) / "auto_poster" / "static"]
+    else:
+        candidates = [Path(__file__).resolve().parents[2] / "frontend" / "dist", Path(__file__).parent / "static"]
+    for candidate in candidates:
         if (candidate / "index.html").exists():
             return candidate
     return None

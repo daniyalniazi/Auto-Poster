@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from auto_poster import database
-from auto_poster.models import Post, PostResult
+from auto_poster.models import PostResult
 
 
 class HistoryEntry(BaseModel):
@@ -26,12 +26,12 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def create_post(request_id: str, post: Post, platforms: list[str], source: str = "manual") -> int:
+def create_post(request_id: str, text: str, image_count: int, platforms: list[str], source: str = "manual") -> int:
     with database.session() as conn:
         cursor = conn.execute(
             "INSERT INTO posts (request_id, created_at, text, image_count, platforms, status, source) "
             "VALUES (?, ?, ?, ?, ?, 'publishing', ?)",
-            (request_id, now_iso(), post.text, len(post.images), json.dumps(platforms), source),
+            (request_id, now_iso(), text, image_count, json.dumps(platforms), source),
         )
         return cursor.lastrowid
 
@@ -50,9 +50,9 @@ def save_results(post_id: int, results: list[PostResult]) -> None:
         for r in results:
             conn.execute(
                 "INSERT INTO post_results (post_id, platform, success, remote_id, url, message, error_code, "
-                "technical_details, retry_after, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "technical_details, retry_after, sent_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (post_id, r.platform, int(r.success), r.post_id, r.post_url, r.message, r.error_code,
-                 r.technical_details, r.retry_after, now_iso()),
+                 r.technical_details, r.retry_after, r.sent_text, now_iso()),
             )
         conn.execute("UPDATE posts SET status = ? WHERE id = ?", (overall_status(results), post_id))
 
@@ -69,6 +69,7 @@ def _results(conn, post_id: int) -> list[PostResult]:
             error_code=row["error_code"],
             technical_details=row["technical_details"],
             retry_after=row["retry_after"],
+            sent_text=row["sent_text"],
         )
         for row in rows
     ]

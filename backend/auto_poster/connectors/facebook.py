@@ -67,6 +67,7 @@ class FacebookConnector(Connector):
     display_name = "Facebook Page"
     description = "Post to a Facebook Page you manage. Posting to personal profiles is not possible."
     limits = LIMITS
+    max_hashtags = 3  # a few hashtags work best on Facebook
     settings_fields = [
         FieldSpec(key="app_id", label="App ID", required=True,
                   help="From your Meta app: App settings → Basic."),

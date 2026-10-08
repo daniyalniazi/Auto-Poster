@@ -130,6 +130,12 @@ def validate(request: PostRequest) -> dict[str, list[Problem]]:
     return publisher.validate(request)
 
 
+@router.post("/prepare")
+def prepare(request: PostRequest) -> dict:
+    """Each selected platform's final text (for the editable previews) and its problems."""
+    return publisher.prepare(request)
+
+
 class PublishRequest(PostRequest):
     request_id: str
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -85,8 +85,21 @@ class ImageFile:
 
 @dataclass
 class Post:
+    """What one platform receives: its final text plus the shared images."""
+
     text: str
     images: list[ImageFile]
+    title: str = ""  # the structured title, if the text starts with it (e.g. Telegram shows it in bold)
+
+
+@dataclass
+class PostContent:
+    """The post as the user wrote it once, in structured mode. Connectors turn it into text."""
+
+    title: str = ""
+    body: str = ""
+    hashtags: list[str] = field(default_factory=list)  # without "#"
+    link: str = ""
 
 
 ProblemLevel = Literal["error", "warning"]
@@ -125,6 +138,7 @@ class PostResult(BaseModel):
     error_code: ErrorCode | None = None
     technical_details: str | None = None  # redacted; shown under "Details"
     retry_after: int | None = None  # seconds, when the platform says so
+    sent_text: str | None = None  # the exact text this platform was given (filled in by the publisher)
 
 
 class ConnectionStatus(BaseModel):
@@ -164,7 +178,15 @@ class ImageInfo(BaseModel):
 
 
 class PostRequest(BaseModel):
-    text: str = ""
+    # "quick": `text` is posted as typed. "structured": title/text/hashtags/link are assembled
+    # per platform by each connector's format_post().
+    mode: Literal["quick", "structured"] = "quick"
+    title: str = ""
+    text: str = ""  # quick-mode text, or the body in structured mode
+    hashtags: str = ""  # as typed, e.g. "#launch opensource, news"
+    link: str = ""
+    # Platform versions the user edited by hand: platform id -> exact text to post.
+    overrides: dict[str, str] = Field(default_factory=dict)
     platforms: list[str] = []
     image_ids: list[str] = []
     alt_texts: dict[str, str] = {}

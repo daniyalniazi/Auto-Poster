@@ -14,8 +14,11 @@ Runs locally. No account required. No cloud backend. Open source (MIT).
 
 ## What it does
 
-1. Write a post and attach images.
+1. Write your post once and attach images. Use **Quick post** (one text box, posted as typed)
+   or **Structured** (title, text, link and hashtags, which each platform arranges its own way).
 2. Tick the platforms that should receive it, and fill in any platform options.
+   **How it will look** shows each platform's version. Edit a version to change it for that
+   platform only, or click **Use automatic version** to go back.
 3. Auto Poster checks each platform's rules (length, image size, format…) **before** you publish.
 4. Click **Publish now**, or choose **Later** to schedule it.
 5. See which platforms worked and which didn't, with a plain-English reason. Everything is kept in **History**.

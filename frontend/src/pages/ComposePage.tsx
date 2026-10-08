@@ -1,19 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import FieldInput from "../components/FieldInput";
 import ImagePicker, { type AttachedImage } from "../components/ImagePicker";
+import PlatformPreviews from "../components/PlatformPreviews";
 import ResultList from "../components/ResultList";
 import {
   api,
+  type ComposeMode,
   type Platform,
   type PostRequest,
-  type Problem,
+  type Prepared,
   type PublishResponse,
   type ScheduledPost,
 } from "../services/api";
 import { formatDate, fromLocalInput, timeZoneName, toLocalInput } from "../services/dates";
-import { charLimit, textLength } from "../services/textLength";
 
 const SELECTED_KEY = "auto-poster.selected-platforms";
+const MODE_KEY = "auto-poster.compose-mode";
+
+function loadMode(): ComposeMode {
+  try {
+    return localStorage.getItem(MODE_KEY) === "structured" ? "structured" : "quick";
+  } catch {
+    return "quick";
+  }
+}
+
+function saveMode(mode: ComposeMode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    /* storage unavailable: mode just isn't remembered */
+  }
+}
 
 function loadSelected(): string[] {
   try {
@@ -49,12 +67,17 @@ export default function ComposePage() {
   const [platforms, setPlatforms] = useState<Platform[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>(editId ? [] : loadSelected);
+  const [mode, setMode] = useState<ComposeMode>(loadMode);
+  const [title, setTitle] = useState("");
   const [text, setText] = useState("");
+  const [hashtags, setHashtags] = useState("");
+  const [link, setLink] = useState("");
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [images, setImages] = useState<AttachedImage[]>([]);
   const [options, setOptions] = useState<Record<string, Record<string, string>>>({});
   const [when, setWhen] = useState<"now" | "later">(editId ? "later" : "now");
   const [scheduleAt, setScheduleAt] = useState(defaultScheduleTime);
-  const [problems, setProblems] = useState<Record<string, Problem[]>>({});
+  const [prepared, setPrepared] = useState<Prepared>({ previews: {}, problems: [] });
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<Done | null>(null);
@@ -71,7 +94,12 @@ export default function ComposePage() {
     api
       .getScheduled(editId)
       .then(async (post) => {
+        setMode(post.mode);
+        setTitle(post.title);
         setText(post.text);
+        setHashtags(post.hashtags);
+        setLink(post.link);
+        setOverrides(post.overrides);
         setSelected(post.platforms);
         setOptions(post.options);
         setScheduleAt(toLocalInput(new Date(post.scheduled_at)));
@@ -98,24 +126,31 @@ export default function ComposePage() {
 
   const postRequest: PostRequest = useMemo(
     () => ({
+      mode,
+      title,
       text,
+      hashtags,
+      link,
+      overrides: Object.fromEntries(Object.entries(overrides).filter(([id]) => activeSelection.includes(id))),
       platforms: activeSelection,
       image_ids: images.map((i) => i.info.id),
       alt_texts: Object.fromEntries(images.map((i) => [i.info.id, i.alt])),
       options: Object.fromEntries(activeSelection.map((id) => [id, options[id] ?? {}])),
     }),
-    [text, activeSelection, images, options],
+    [mode, title, text, hashtags, link, overrides, activeSelection, images, options],
   );
 
-  // Check the post against each selected platform's rules while the user types.
+  // Build each platform's version and check it against that platform's rules while the user types.
   useEffect(() => {
     if (!platforms) return;
     setChecking(true);
     const timer = setTimeout(() => {
       api
-        .validate(postRequest)
-        .then(setProblems)
-        .catch((e) => setProblems({ all: [{ platform: "all", message: e.message, level: "error", field: null }] }))
+        .prepare(postRequest)
+        .then(setPrepared)
+        .catch((e) =>
+          setPrepared({ previews: {}, problems: [{ platform: "all", message: e.message, level: "error", field: null }] }),
+        )
         .finally(() => setChecking(false));
     }, 350);
     return () => clearTimeout(timer);
@@ -125,6 +160,19 @@ export default function ComposePage() {
     const next = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
     setSelected(next);
     if (!editId) saveSelected(next);
+  }
+
+  function changeMode(next: ComposeMode) {
+    setMode(next);
+    if (!editId) saveMode(next);
+  }
+
+  function editPlatformText(platformId: string, value: string) {
+    setOverrides((prev) => ({ ...prev, [platformId]: value }));
+  }
+
+  function resetPlatformText(platformId: string) {
+    setOverrides(({ [platformId]: _removed, ...rest }) => rest);
   }
 
   function setOption(platformId: string, key: string, value: string) {
@@ -141,7 +189,8 @@ export default function ComposePage() {
           ? "That time has already passed. Choose a time in the future."
           : null;
 
-  const errorCount = Object.values(problems).flat().filter((p) => p.level === "error").length;
+  const allProblems = [...prepared.problems, ...Object.values(prepared.previews).flatMap((p) => p.problems)];
+  const errorCount = allProblems.filter((p) => p.level === "error").length;
   const canSubmit =
     activeSelection.length > 0 && errorCount === 0 && !scheduleProblem && !checking && !busy;
 
@@ -168,7 +217,11 @@ export default function ComposePage() {
 
   function startNew() {
     images.forEach((i) => i.previewUrl && URL.revokeObjectURL(i.previewUrl));
+    setTitle("");
     setText("");
+    setHashtags("");
+    setLink("");
+    setOverrides({});
     setImages([]);
     setOptions({});
     setDone(null);
@@ -223,7 +276,8 @@ export default function ComposePage() {
     );
   }
 
-  const generalProblems = problems.all ?? [];
+  const generalProblems = prepared.problems;
+  const selectedPlatforms = platforms.filter((p) => activeSelection.includes(p.id));
   const buttonLabel = busy
     ? when === "now" ? "Publishing…" : "Saving…"
     : when === "now" ? "Publish now" : editId ? "Save changes" : "Schedule post";
@@ -233,15 +287,62 @@ export default function ComposePage() {
       <h1>{editId ? "Edit scheduled post" : "Create post"}</h1>
 
       <section className="card" aria-labelledby="content-heading">
-        <h2 id="content-heading">Your post</h2>
-        <label htmlFor="post-text" className="sr-only">Post text</label>
-        <textarea
-          id="post-text"
-          value={text}
-          placeholder="What do you want to share?"
-          onChange={(e) => setText(e.target.value)}
-          disabled={busy}
-        />
+        <div className="row" style={{ marginBottom: 10 }}>
+          <h2 id="content-heading" style={{ margin: 0 }}>Your post</h2>
+          <span className="spacer" />
+          <div className="segmented" role="radiogroup" aria-label="How to write the post">
+            <button type="button" role="radio" aria-checked={mode === "quick"}
+              className={mode === "quick" ? "active" : ""} onClick={() => changeMode("quick")}>
+              Quick post
+            </button>
+            <button type="button" role="radio" aria-checked={mode === "structured"}
+              className={mode === "structured" ? "active" : ""} onClick={() => changeMode("structured")}>
+              Structured
+            </button>
+          </div>
+        </div>
+        {mode === "quick" ? (
+          <>
+            <label htmlFor="post-text" className="sr-only">Post text</label>
+            <textarea
+              id="post-text"
+              value={text}
+              placeholder="What do you want to share? It's posted as typed on every platform."
+              onChange={(e) => setText(e.target.value)}
+              disabled={busy}
+            />
+          </>
+        ) : (
+          <>
+            <p className="help" style={{ marginTop: 0 }}>
+              Write it once. Each platform arranges the title, text, link and hashtags its own way. See “How it will
+              look” below.
+            </p>
+            <div className="field">
+              <label htmlFor="post-title">Title <span className="muted">(optional)</span></label>
+              <input id="post-title" type="text" value={title} disabled={busy}
+                placeholder="e.g. Our new product is here" onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="post-text">Text</label>
+              <textarea id="post-text" value={text} disabled={busy}
+                placeholder="What do you want to share?" onChange={(e) => setText(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="post-link">Link <span className="muted">(optional)</span></label>
+              <input id="post-link" type="text" value={link} disabled={busy} inputMode="url"
+                placeholder="https://…" onChange={(e) => setLink(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor="post-hashtags">Hashtags <span className="muted">(optional)</span></label>
+              <input id="post-hashtags" type="text" value={hashtags} disabled={busy}
+                placeholder="#launch #OpenSource" onChange={(e) => setHashtags(e.target.value)} />
+              <p className="help">
+                Separate with spaces or commas. Capitalising each word (#OpenSource) helps screen readers.
+              </p>
+            </div>
+          </>
+        )}
         <div style={{ marginTop: 10 }}>
           <ImagePicker images={images} onChange={setImages} disabled={busy} deleteOnRemove={!editId} />
         </div>
@@ -252,9 +353,7 @@ export default function ComposePage() {
         <div className="platform-list">
           {platforms.map((p) => {
             const isSelected = activeSelection.includes(p.id);
-            const limit = charLimit(p.limits, images.length > 0);
-            const length = textLength(text, p.limits.count_method);
-            const platformProblems = problems[p.id] ?? [];
+            const platformErrors = (prepared.previews[p.id]?.problems ?? []).filter((x) => x.level === "error");
             return (
               <div key={p.id}>
                 <div className={`platform-choice ${isSelected ? "selected" : ""}`}>
@@ -267,9 +366,9 @@ export default function ComposePage() {
                   />
                   <label htmlFor={`select-${p.id}`} className="name" style={{ margin: 0 }}>{p.name}</label>
                   <span className="spacer" />
-                  {isSelected && (
-                    <span className={`counter ${length > limit ? "over" : ""}`}>
-                      {length} / {limit}
+                  {isSelected && platformErrors.length > 0 && p.configured && (
+                    <span className="counter over">
+                      {platformErrors.length === 1 ? "1 problem" : `${platformErrors.length} problems`}
                     </span>
                   )}
                   {p.configured ? (
@@ -281,14 +380,9 @@ export default function ComposePage() {
                     </>
                   )}
                 </div>
-                {isSelected && (platformProblems.length > 0 || p.post_fields.length > 0) && (
+                {isSelected && p.configured && p.post_fields.length > 0 && (
                   <div className="platform-options">
-                    {platformProblems.map((problem, i) => (
-                      <div key={i} className={`notice ${problem.level === "error" ? "bad" : "warn"}`}>
-                        <p>{problem.message}</p>
-                      </div>
-                    ))}
-                    {p.configured && p.post_fields.map((field) => (
+                    {p.post_fields.map((field) => (
                       <FieldInput
                         key={field.key}
                         field={field}
@@ -304,6 +398,16 @@ export default function ComposePage() {
           })}
         </div>
       </section>
+
+      <PlatformPreviews
+        platforms={selectedPlatforms}
+        previews={prepared.previews}
+        overrides={overrides}
+        hasImages={images.length > 0}
+        disabled={busy}
+        onEdit={editPlatformText}
+        onReset={resetPlatformText}
+      />
 
       <section className="card" aria-labelledby="when-heading">
         <h2 id="when-heading">When</h2>
@@ -352,7 +456,7 @@ export default function ComposePage() {
             : checking
               ? "Checking…"
               : errorCount > 0
-                ? `Fix ${errorCount === 1 ? "the problem" : `the ${errorCount} problems`} above to continue.`
+                ? `Fix ${errorCount === 1 ? "the problem" : `the ${errorCount} problems`} in “How it will look” to continue.`
                 : `Ready for ${activeSelection.map((id) => names[id]).join(", ")}.`}
         </span>
       </div>

@@ -11,7 +11,7 @@ import json
 
 import httpx
 
-from auto_poster.connectors.base import Config, Connector, Options
+from auto_poster.connectors.base import Config, Connector, Options, text_length
 from auto_poster.models import (
     ActionResult,
     ActionSpec,
@@ -261,17 +261,25 @@ class TelegramConnector(Connector):
         base = {"chat_id": chat_id}
         if silent:
             base["disable_notification"] = "true"
+        # A structured post's title is shown in bold. Entities mark text ranges (in UTF-16 units)
+        # instead of using parse_mode, so the rest of the text never needs escaping.
+        entities = (
+            [{"type": "bold", "offset": 0, "length": text_length(post.title, "utf16")}] if post.title else []
+        )
 
         async with self.http() as client:
             if not post.images:
-                message = await self._call(
-                    client, token, "sendMessage", {**base, "text": post.text, "disable_notification": silent}
-                )
+                data = {**base, "text": post.text, "disable_notification": silent}
+                if entities:
+                    data["entities"] = entities
+                message = await self._call(client, token, "sendMessage", data)
             elif len(post.images) == 1:
                 image = post.images[0]
                 data = {**base}
                 if post.text:
                     data["caption"] = post.text
+                    if entities:
+                        data["caption_entities"] = json.dumps(entities)
                 files = {"photo": (image.filename, image.read_bytes(), image.mime_type)}
                 message = await self._call(client, token, "sendPhoto", data, files)
             else:
@@ -280,6 +288,8 @@ class TelegramConnector(Connector):
                     item = {"type": "photo", "media": f"attach://photo{index}"}
                     if index == 0 and post.text:
                         item["caption"] = post.text  # first caption becomes the album caption
+                        if entities:
+                            item["caption_entities"] = entities
                     media.append(item)
                     files[f"photo{index}"] = (image.filename, image.read_bytes(), image.mime_type)
                 messages = await self._call(

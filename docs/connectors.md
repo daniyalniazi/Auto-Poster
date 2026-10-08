@@ -64,6 +64,7 @@ class ExampleConnector(Connector):
 | `settings_fields` | Settings form. `kind="secret"` fields go to the OS keyring and are shown masked. |
 | `post_fields` | Options on the post form (only shown when the platform is selected). Values arrive in `options` as strings; checkboxes are `"true"`/`"false"`. |
 | `limits` | Used by the shared `validate()` for text length and image checks, and by the UI's character counter. |
+| `format_post(content)` | Structured mode: turns the title, body, link and hashtags into this platform's text. The default puts each in its own paragraph; override for platform style. Set `max_hashtags` to cap hashtags (the user sees a warning). The user can still hand-edit the result per platform. |
 | `validate(post, options, config)` | Local checks only, no network. The base version checks `limits`; override it and call `super()` for extra rules. Return `Problem`s with `level="warning"` for things that won't block publishing. |
 | `test_connection(config)` | Check the settings work **without posting**. |
 | `post(post, options, config)` | Publish. Return a `PostResult` on success; **raise `PlatformError`** on failure. |

@@ -51,6 +51,7 @@ export interface PostResult {
   error_code: string | null;
   technical_details: string | null;
   retry_after: number | null;
+  sent_text?: string | null;
 }
 
 export interface ConnectionStatus {
@@ -70,12 +71,30 @@ export interface ImageInfo {
   height: number;
 }
 
+export type ComposeMode = "quick" | "structured";
+
 export interface PostRequest {
+  mode: ComposeMode;
+  title: string;
   text: string;
+  hashtags: string;
+  link: string;
+  overrides: Record<string, string>;
   platforms: string[];
   image_ids: string[];
   alt_texts: Record<string, string>;
   options: Record<string, Record<string, string>>;
+}
+
+export interface Preview {
+  text: string;
+  customized: boolean;
+  problems: Problem[];
+}
+
+export interface Prepared {
+  previews: Record<string, Preview>;
+  problems: Problem[];
 }
 
 export interface PublishResponse {
@@ -100,7 +119,12 @@ export interface ScheduledPost {
   created_at: string;
   updated_at: string;
   scheduled_at: string;
+  mode: ComposeMode;
+  title: string;
   text: string;
+  hashtags: string;
+  link: string;
+  overrides: Record<string, string>;
   images: ImageInfo[];
   alt_texts: Record<string, string>;
   platforms: string[];
@@ -172,6 +196,7 @@ export const api = {
     return request<ImageInfo>("POST", "/media", form);
   },
   deleteImage: (id: string) => request<{ ok: boolean }>("DELETE", `/media/${id}`),
+  prepare: (post: PostRequest) => request<Prepared>("POST", "/prepare", post),
   validate: (post: PostRequest) => request<Record<string, Problem[]>>("POST", "/validate", post),
   publish: (post: PostRequest, requestId: string) =>
     request<PublishResponse>("POST", "/publish", { ...post, request_id: requestId }),

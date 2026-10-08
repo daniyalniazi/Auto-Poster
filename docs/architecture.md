@@ -85,6 +85,20 @@ API base URLs and version numbers live as constants at the top of each
 connector file (e.g. `GRAPH_API_VERSION = "v25.0"`, `LINKEDIN_VERSION = "YYYYMM"`)
 and are documented in `docs/platforms/`.
 
+## Write once, adapt per platform
+
+`services/compose.py` decides each platform's text, in this order:
+
+1. The user's hand-edited version for that platform (`overrides`), exactly as typed.
+2. **Quick post** mode: the single text box, exactly as typed.
+3. **Structured** mode: the connector's `format_post()` of title, body, link and hashtags.
+   LinkedIn keeps at most 5 hashtags and Facebook at most 3 (with a visible warning).
+   Telegram shows the title in bold using message entities, so the text never needs escaping.
+
+`POST /api/prepare` returns every selected platform's text and problems; the post form shows
+them as editable tabs. A version that's too long is an error on that platform only, and the user
+fixes it either in that tab or in the shared post. History stores the exact text each platform received.
+
 ## Publishing flow
 
 1. UI sends text, images, selected platforms and per-platform options.

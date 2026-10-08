@@ -26,6 +26,7 @@ from auto_poster.models import (
     PlatformError,
     PlatformLimits,
     Post,
+    PostContent,
     PostResult,
     Problem,
     SetupGuide,
@@ -50,6 +51,8 @@ class Connector(ABC):
     settings_fields: list[FieldSpec] = []
     post_fields: list[FieldSpec] = []
     actions: list[ActionSpec] = []  # extra Settings buttons, e.g. "Connect LinkedIn"
+    # Most hashtags this platform's audience expects; extras are left out (with a warning).
+    max_hashtags: int | None = None
     # Secrets the connector stores itself (e.g. session or OAuth tokens), never shown in the UI.
     internal_secret_keys: set[str] = set()
     setup_guide: SetupGuide
@@ -63,6 +66,20 @@ class Connector(ABC):
     @abstractmethod
     async def post(self, post: Post, options: Options, config: Config) -> PostResult:
         """Publish the post. Return a successful PostResult or raise PlatformError."""
+
+    def format_post(self, content: PostContent) -> str:
+        """Turn the structured post into this platform's text. Override for platform style.
+
+        Default: title, body, link and hashtags as separate paragraphs.
+        """
+        tags = content.hashtags[: self.max_hashtags] if self.max_hashtags is not None else content.hashtags
+        parts = [
+            content.title.strip(),
+            content.body.strip(),
+            content.link.strip() if content.link.strip() not in content.body else "",
+            " ".join(f"#{tag}" for tag in tags),
+        ]
+        return "\n\n".join(part for part in parts if part)
 
     def validate(self, post: Post, options: Options, config: Config) -> list[Problem]:
         """Local checks only (no network). Override and call super() to add platform rules."""

@@ -224,3 +224,16 @@ details.guide ol { padding-left: 20px; }
 section.card { scroll-margin-top: 16px; }
 
 .help, .notice p, details.guide li { overflow-wrap: anywhere; }
+
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button { border: none; border-radius: 0; padding: 6px 12px; font-weight: 500; color: var(--muted); }
+.segmented button.active { background: var(--accent); color: var(--accent-text); }
+.segmented button.active:hover:not(:disabled) { background: var(--accent); }
+
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.tab {
+  border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0;
+  background: none; color: var(--muted); font-weight: 600; margin-bottom: -1px;
+}
+.tab.active { border-color: var(--border); background: var(--surface); color: var(--text); }
+.preview-text { min-height: 0; }

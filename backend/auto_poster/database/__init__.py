@@ -62,6 +62,12 @@ MIGRATIONS = [
     );
     CREATE INDEX idx_scheduled_due ON scheduled_posts(status, enabled, scheduled_at);
     """,
+    """
+    -- Structured posts: mode, title, hashtags, link and per-platform hand edits (JSON).
+    ALTER TABLE scheduled_posts ADD COLUMN compose TEXT NOT NULL DEFAULT '{}';
+    -- The exact text each platform received.
+    ALTER TABLE post_results ADD COLUMN sent_text TEXT;
+    """,
 ]
 
 

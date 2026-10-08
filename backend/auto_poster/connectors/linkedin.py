@@ -75,6 +75,7 @@ class LinkedInConnector(Connector):
     display_name = "LinkedIn"
     description = "Post to your personal LinkedIn profile (company pages are not supported)."
     limits = LIMITS
+    max_hashtags = 5  # LinkedIn recommends 3-5 hashtags
     settings_fields = [
         FieldSpec(key="client_id", label="Client ID", required=True,
                   help="From your LinkedIn app's Auth tab."),

@@ -41,6 +41,12 @@ export default function ResultList({ results, names }: Props) {
                 View post
               </a>
             )}
+            {r.sent_text && (
+              <details className="tech">
+                <summary>Text {r.success ? "posted" : "prepared"} for {names[r.platform] ?? r.platform}</summary>
+                <pre>{r.sent_text}</pre>
+              </details>
+            )}
             {!r.success && <TechDetails text={r.technical_details} />}
           </div>
         </div>
