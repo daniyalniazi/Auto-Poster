@@ -33,6 +33,9 @@ Also:
 - **Saved hashtag sets:** save hashtags you use often (e.g. "Launch") and add them with one click.
 - **Delete everywhere:** remove a post from every platform it went to, from History. (Telegram bots
   can only delete their posts within 48 hours unless they have the "Delete messages" admin permission.)
+- **Backup and restore** (Settings → Your data): one file with your history, drafts, scheduled posts,
+  settings and images, to keep safe or move to a new computer. Passwords and tokens are never
+  included, so you reconnect platforms after restoring.
 
 ## Your data stays with you
 

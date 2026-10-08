@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DataCard from "../components/DataCard";
 import PlatformSettingsCard from "../components/PlatformSettingsCard";
 import { api, type Platform } from "../services/api";
 
@@ -54,6 +55,7 @@ export default function SettingsPage() {
       {platforms.map((p) => (
         <PlatformSettingsCard key={p.id} platform={p} onChanged={reload} />
       ))}
+      <DataCard onRestored={reload} />
     </>
   );
 }

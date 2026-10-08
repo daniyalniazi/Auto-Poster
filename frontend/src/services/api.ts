@@ -251,6 +251,19 @@ export const api = {
     request<ScheduledPost>("PUT", `/scheduled/${id}/enabled`, { enabled }),
   sendScheduledNow: (id: number) => request<ScheduledPost>("POST", `/scheduled/${id}/send-now`),
   deleteScheduled: (id: number) => request<{ ok: boolean }>("DELETE", `/scheduled/${id}`),
+  downloadBackup: async () => {
+    const response = await fetch("/api/backup", { headers: { "X-Auto-Poster-Token": await sessionToken() } });
+    if (!response.ok) throw new ApiError("Could not create the backup.", response.status);
+    const match = /filename="?([^";]+)"?/.exec(response.headers.get("content-disposition") ?? "");
+    return { blob: await response.blob(), filename: match?.[1] ?? "auto-poster-backup.zip" };
+  },
+  restoreBackup: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{ posts: number; images: number }>("POST", "/backup/restore", form);
+  },
+  storage: () => request<{ media_bytes: number }>("GET", "/storage"),
+  cleanupStorage: (days: number) => request<{ freed_bytes: number }>("POST", "/storage/cleanup", { days }),
   // <img> tags can't send the session header, so images are fetched and shown as blob URLs.
   imageUrl: async (id: string) => {
     const response = await fetch(`/api/media/${id}`, { headers: { "X-Auto-Poster-Token": await sessionToken() } });

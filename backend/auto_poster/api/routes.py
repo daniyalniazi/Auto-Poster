@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from starlette.background import BackgroundTask
 
 from auto_poster.connectors.base import safe_run_action, safe_test_connection
 from auto_poster.connectors.registry import CONNECTORS, get_connector
 from auto_poster.models import ActionResult, ConnectionStatus, ImageInfo, PostRequest, PostResult, Problem
 from auto_poster.security.credentials import get_store
-from auto_poster.services import deleter, drafts, hashtag_sets, history, media, media_usage, publisher, scheduler
+from auto_poster.services import backup, deleter, drafts, hashtag_sets, history, media, media_usage, publisher, scheduler
 from auto_poster.services import settings as settings_service
 
 router = APIRouter(prefix="/api")
@@ -328,3 +332,39 @@ async def delete_everywhere(post_id: int) -> list[deleter.DeleteOutcome]:
     if outcomes is None:
         raise HTTPException(404, "That post is no longer in your history.")
     return outcomes
+
+
+# ---- backup and storage ---------------------------------------------------------------------
+
+
+@router.get("/backup")
+def download_backup() -> FileResponse:
+    """A zip with history, drafts, scheduled posts, reminders, settings and images. No secrets."""
+    folder = tempfile.mkdtemp(prefix="auto-poster-backup-")
+    name = f"auto-poster-backup-{datetime.now().strftime('%Y-%m-%d')}.zip"
+    path = Path(folder) / name
+    backup.export_to(path)
+    return FileResponse(path, media_type="application/zip", filename=name,
+                        background=BackgroundTask(shutil.rmtree, folder, ignore_errors=True))
+
+
+@router.post("/backup/restore")
+async def restore_backup(file: UploadFile = File(...)) -> dict:
+    try:
+        return backup.restore_from(await file.read())
+    except backup.BackupError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+@router.get("/storage")
+def storage() -> dict:
+    return {"media_bytes": media.total_size()}
+
+
+class CleanupRequest(BaseModel):
+    days: int
+
+
+@router.post("/storage/cleanup")
+def storage_cleanup(body: CleanupRequest) -> dict:
+    return backup.remove_old_images(max(body.days, 0))

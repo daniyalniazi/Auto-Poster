@@ -20,7 +20,7 @@ you connect. There is no project server, account, analytics or telemetry.
 | The UI / browser developer tools | The backend never sends a stored secret to the browser; it only sends a mask like `••••1234`. Secrets are never in the JavaScript bundle. |
 | Secrets in URLs | Never placed in URLs: browser sign-in uses single-use `state` values, and Facebook tokens go in the `Authorization` header. (Telegram's Bot API requires the bot token in the request path; it's only ever sent to `api.telegram.org` over HTTPS and is masked in logs.) |
 | Logs, error details and history | A log filter masks every known secret and token-like pattern, and `httpx` request logging is off unless `--debug`. Error "Details" shown in the UI and saved in history go through the same redaction. |
-| Database dumps and backups | The SQLite database contains settings, history and post text, but no secrets. |
+| Database dumps and backups | The SQLite database contains settings, history and post text, but no secrets. Auto Poster backups (Settings → Your data) contain that database and your images, never passwords or tokens. Restoring checks the file first and only accepts the expected contents. |
 | Git leaks | Settings live outside the repository. `.gitignore` excludes `.env`, databases and media. Tests use fake values. |
 | Browser sign-in hijacking | OAuth `state` is random, single-use and expires after 15 minutes. PKCE is used where supported (Mastodon). |
 | Crash reports | There are none: nothing is ever sent anywhere automatically. |
