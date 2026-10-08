@@ -36,6 +36,9 @@ Also:
 - **Repost reminders:** in History, click **Remind me to repost** and choose when (once, weekly,
   every 2 weeks or monthly). When the day comes, Auto Poster asks "Time to repost?" and opens the
   post ready to review. It never reposts on its own.
+- **Stats:** likes, shares/reposts, comments and (Facebook) views for your posts, plus the latest
+  comments. Bluesky, Mastodon and Facebook Pages share these; Telegram and LinkedIn don't, and the
+  app says so instead of showing zeros. Numbers are current totals, fetched when you open Stats.
 - **Backup and restore** (Settings → Your data): one file with your history, drafts, scheduled posts,
   settings and images, to keep safe or move to a new computer. Passwords and tokens are never
   included, so you reconnect platforms after restoring.

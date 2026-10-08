@@ -27,6 +27,7 @@ from auto_poster.services import (
     publisher,
     reminders,
     scheduler,
+    stats,
 )
 from auto_poster.services import settings as settings_service
 
@@ -486,3 +487,28 @@ def reminder_compose(reminder_id: int) -> ComposeData:
         raise HTTPException(404, "That reminder no longer exists.")
     request, images, missing = found
     return ComposeData(request=request, images=images, missing_images=missing)
+
+
+# ---- stats ------------------------------------------------------------------------------------
+
+
+@router.get("/stats")
+def get_stats() -> stats.StatsOverview:
+    """Saved totals for recent posts (call /stats/refresh to update them)."""
+    return stats.overview()
+
+
+class RefreshRequest(BaseModel):
+    force: bool = False
+
+
+@router.post("/stats/refresh")
+async def refresh_stats(body: RefreshRequest) -> stats.StatsOverview:
+    await stats.refresh(force=body.force)
+    return stats.overview()
+
+
+@router.get("/stats/comments")
+async def get_comments(post_id: int, platform: str) -> dict:
+    found, error = await stats.comments(post_id, platform)
+    return {"comments": [c.model_dump() for c in found], "error": error}

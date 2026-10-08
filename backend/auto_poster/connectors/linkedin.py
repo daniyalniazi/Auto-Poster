@@ -291,6 +291,7 @@ class LinkedInConnector(Connector):
         return value["image"]
 
     can_delete = True
+    stats_unavailable_reason = "LinkedIn only shares post stats with approved partner apps."
 
     async def delete_post(self, post_id: str, config: Config) -> None:
         async with self.http() as client:

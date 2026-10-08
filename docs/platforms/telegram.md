@@ -51,6 +51,11 @@ Telegram also limits how fast a bot can post (roughly 20 messages per minute in 
 group). If Telegram answers "Too Many Requests", Auto Poster records the failure with the
 waiting time Telegram gives and does **not** retry automatically.
 
+## Stats
+
+Telegram's Bot API has no way for a bot to read a post's views or reactions, so the Stats page
+shows Telegram posts as "Not available".
+
 ## Deleting posts
 
 **Delete everywhere** in History uses `deleteMessages` (all photos of an album are removed).

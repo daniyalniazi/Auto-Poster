@@ -52,6 +52,12 @@ Images over Bluesky's size limit are **automatically compressed** (and scaled do
 just like the official Bluesky app does. The post form warns you when this will happen.
 Re-compressed images lose their EXIF data (including any GPS location).
 
+## Stats
+
+The **Stats** page reads likes, reposts/quotes and replies with `app.bsky.feed.getPosts`, and
+the latest replies with `app.bsky.feed.getPostThread`, from Bluesky's public read-only API
+(`public.api.bsky.app`), so no extra permission is needed. Bluesky doesn't report view counts.
+
 ## Limits (from the official lexicons)
 
 | Rule | Value | Source |

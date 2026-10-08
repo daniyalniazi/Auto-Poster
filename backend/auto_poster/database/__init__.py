@@ -99,6 +99,17 @@ MIGRATIONS = [
     """
     ALTER TABLE post_results ADD COLUMN deleted_at TEXT;  -- set by "Delete everywhere"
     """,
+    """
+    -- Latest totals per published post and platform (no history of numbers is kept).
+    CREATE TABLE post_stats (
+        post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+        platform TEXT NOT NULL,
+        data TEXT,                          -- PostStats JSON, last good value
+        error TEXT,                         -- last problem fetching, in plain English
+        fetched_at TEXT NOT NULL,
+        PRIMARY KEY (post_id, platform)
+    );
+    """,
 ]
 
 

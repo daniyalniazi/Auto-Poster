@@ -5,12 +5,14 @@ import DraftsPage from "./pages/DraftsPage";
 import HistoryPage from "./pages/HistoryPage";
 import ScheduledPage from "./pages/ScheduledPage";
 import SettingsPage from "./pages/SettingsPage";
+import StatsPage from "./pages/StatsPage";
 
 const PAGES = [
   { hash: "#/", label: "Create post" },
   { hash: "#/drafts", label: "Drafts" },
   { hash: "#/scheduled", label: "Scheduled" },
   { hash: "#/history", label: "History" },
+  { hash: "#/stats", label: "Stats" },
   { hash: "#/settings", label: "Settings" },
 ];
 
@@ -53,6 +55,7 @@ export default function App() {
         {page === "#/drafts" && <DraftsPage />}
         {page === "#/scheduled" && <ScheduledPage />}
         {page === "#/history" && <HistoryPage />}
+        {page === "#/stats" && <StatsPage />}
         {page === "#/settings" && <SettingsPage />}
       </main>
     </>

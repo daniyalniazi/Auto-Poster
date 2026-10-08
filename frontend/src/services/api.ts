@@ -138,6 +138,30 @@ export interface Reminder {
   due: boolean;
 }
 
+export interface Comment {
+  author: string;
+  text: string;
+  created_at: string | null;
+}
+
+export interface PostStats {
+  likes: number | null;
+  shares: number | null;
+  replies: number | null;
+  views: number | null;
+}
+
+export interface StatsOverview {
+  platforms: Record<string, { name: string; supported: boolean; reason: string }>;
+  totals: { days: number; posts: number; likes: number; shares: number; replies: number; views: number | null };
+  posts: {
+    history_id: number;
+    created_at: string;
+    text: string;
+    results: { platform: string; post_url: string | null; deleted: boolean; stats: PostStats | null; error: string | null }[];
+  }[];
+}
+
 export interface SystemInfo {
   autostart_supported: boolean;
   autostart_enabled: boolean;
@@ -291,6 +315,11 @@ export const api = {
   stopReminder: (id: number) => request<Reminder>("POST", `/reminders/${id}/stop`),
   deleteReminder: (id: number) => request<{ ok: boolean }>("DELETE", `/reminders/${id}`),
   reminderCompose: (id: number) => request<ComposeData>("GET", `/reminders/${id}/compose`),
+  stats: () => request<StatsOverview>("GET", "/stats"),
+  refreshStats: (force = false) => request<StatsOverview>("POST", "/stats/refresh", { force }),
+  statsComments: (postId: number, platform: string) =>
+    request<{ comments: Comment[]; error: string | null }>(
+      "GET", `/stats/comments?post_id=${postId}&platform=${encodeURIComponent(platform)}`),
   system: () => request<SystemInfo>("GET", "/system"),
   setAutostart: (enabled: boolean) => request<SystemInfo>("PUT", "/system/autostart", { enabled }),
   storage: () => request<{ media_bytes: number }>("GET", "/storage"),

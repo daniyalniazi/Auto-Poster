@@ -25,8 +25,10 @@ from auto_poster.models import (
     FieldSpec,
     PlatformError,
     PlatformLimits,
+    Comment,
     Post,
     PostContent,
+    PostStats,
     PostResult,
     Problem,
     SetupGuide,
@@ -104,6 +106,18 @@ class Connector(ABC):
         raise PlatformError("unknown_error", "This platform does not use browser sign-in.")
 
     can_delete: bool = False
+
+    # Stats (likes, shares, comments, views). Platforms that don't share them say why.
+    supports_stats: bool = False
+    stats_unavailable_reason: str = ""
+
+    async def fetch_stats(self, post_id: str, config: Config) -> PostStats:
+        """Current totals for one published post. Raise PlatformError on failure."""
+        raise PlatformError("unknown_error", self.stats_unavailable_reason or "Stats aren't available.")
+
+    async def fetch_comments(self, post_id: str, config: Config) -> list[Comment]:
+        """The newest comments/replies on one published post (up to about 20)."""
+        raise PlatformError("unknown_error", self.stats_unavailable_reason or "Comments aren't available.")
 
     async def delete_post(self, post_id: str, config: Config) -> None:
         """Delete a post this connector published (post_id as returned in PostResult).
@@ -313,6 +327,24 @@ async def safe_delete(connector: Connector, post_id: str, config: Config) -> Pla
         err = _exception_to_error(connector, exc)
         err.technical_details = redact(err.technical_details)
         return err
+
+
+async def safe_stats(connector: Connector, post_id: str, config: Config) -> tuple[PostStats | None, PlatformError | None]:
+    try:
+        return await connector.fetch_stats(post_id, config), None
+    except Exception as exc:
+        err = _exception_to_error(connector, exc)
+        err.technical_details = redact(err.technical_details)
+        return None, err
+
+
+async def safe_comments(connector: Connector, post_id: str, config: Config) -> tuple[list[Comment], PlatformError | None]:
+    try:
+        return await connector.fetch_comments(post_id, config), None
+    except Exception as exc:
+        err = _exception_to_error(connector, exc)
+        err.technical_details = redact(err.technical_details)
+        return [], err
 
 
 async def safe_post(connector: Connector, post: Post, options: Options, config: Config) -> PostResult:

@@ -216,6 +216,7 @@ class TelegramConnector(Connector):
     # ---- connector interface -------------------------------------------------------------
 
     can_delete = True
+    stats_unavailable_reason = "Telegram doesn't let bots read view or reaction counts for posts."
 
     async def delete_post(self, post_id: str, config: Config) -> None:
         chat_id, message_ids = parse_post_id(post_id, config.get("chat_id", "").strip())

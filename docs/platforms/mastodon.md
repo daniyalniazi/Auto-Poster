@@ -31,8 +31,10 @@ Standard OAuth 2.0 authorization code flow with PKCE, run entirely on your compu
 3. The server redirects back to the local app, which checks `state` and exchanges the code
    (`POST /oauth/token`) for an access token. Mastodon tokens don't expire until revoked.
 
-Scopes requested: `read:accounts` (to show which account is connected), `write:statuses`,
-`write:media`. Nothing else.
+Scopes requested: `read:accounts` (to show which account is connected), `read:statuses`
+(to read likes, boosts and replies for the **Stats** page), `write:statuses`, `write:media`.
+Nothing else. Connections made before Stats existed don't have `read:statuses`: stats still work
+for public posts, and for other posts the app asks you to click **Connect Mastodon** again.
 
 ## Post options
 

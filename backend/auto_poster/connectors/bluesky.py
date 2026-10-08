@@ -30,14 +30,17 @@ from auto_poster.models import (
     FieldSpec,
     PlatformError,
     PlatformLimits,
+    Comment,
     Post,
     PostResult,
+    PostStats,
     Problem,
     SetupGuide,
 )
 from auto_poster.services.media import MediaError, fit_to_size
 
 DEFAULT_SERVICE = "https://bsky.social"
+PUBLIC_APPVIEW = "https://public.api.bsky.app"  # read-only, no sign-in needed
 MAX_TEXT_BYTES = 3000  # app.bsky.feed.post: text maxLength (UTF-8 bytes)
 MAX_BLOB_BYTES = 2_000_000  # app.bsky.embed.images: image maxSize
 
@@ -315,6 +318,37 @@ class BlueskyConnector(Connector):
         return facets
 
     can_delete = True
+    supports_stats = True
+
+    async def fetch_stats(self, post_id: str, config: Config) -> PostStats:
+        async with self.http() as client:
+            response = await client.get(f"{PUBLIC_APPVIEW}/xrpc/app.bsky.feed.getPosts", params={"uris": [post_id]})
+        if response.status_code != 200:
+            raise self._error(response, "getPosts")
+        posts = response.json().get("posts", [])
+        if not posts:
+            raise PlatformError("not_found", "This post is no longer on Bluesky.")
+        p = posts[0]
+        return PostStats(likes=p.get("likeCount", 0), shares=p.get("repostCount", 0) + p.get("quoteCount", 0),
+                         replies=p.get("replyCount", 0))
+
+    async def fetch_comments(self, post_id: str, config: Config) -> list[Comment]:
+        async with self.http() as client:
+            response = await client.get(f"{PUBLIC_APPVIEW}/xrpc/app.bsky.feed.getPostThread",
+                                        params={"uri": post_id, "depth": 1, "parentHeight": 0})
+        if response.status_code != 200:
+            raise self._error(response, "getPostThread")
+        replies = response.json().get("thread", {}).get("replies", []) or []
+        comments = []
+        for reply in replies:
+            post = reply.get("post")
+            if not post:  # blocked or deleted replies
+                continue
+            author = post.get("author", {})
+            comments.append(Comment(author=author.get("displayName") or f"@{author.get('handle', 'someone')}",
+                                    text=post.get("record", {}).get("text", ""), created_at=post.get("indexedAt")))
+        comments.sort(key=lambda c: c.created_at or "", reverse=True)
+        return comments[:20]
 
     async def delete_post(self, post_id: str, config: Config) -> None:
         # post_id is the at:// URI: at://<did>/app.bsky.feed.post/<rkey>

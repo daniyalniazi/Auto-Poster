@@ -33,8 +33,10 @@ from auto_poster.models import (
     FieldSpec,
     PlatformError,
     PlatformLimits,
+    Comment,
     Post,
     PostResult,
+    PostStats,
     Problem,
     SetupGuide,
 )
@@ -45,7 +47,8 @@ from auto_poster.services import oauth
 GRAPH_VERSION = "v26.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
 DIALOG = f"https://www.facebook.com/{GRAPH_VERSION}/dialog/oauth"
-SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata"
+SCOPES = ("pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata,"
+          "read_insights,pages_read_user_content")  # the last two: post views and comments for Stats
 
 LIMITS = PlatformLimits(
     max_chars=63206,  # Facebook's post text limit
@@ -312,6 +315,48 @@ class FacebookConnector(Connector):
                                 message=f"Connected. Posts will go to the Page “{page.get('name')}”.")
 
     can_delete = True
+    supports_stats = True
+
+    def _stats_token(self, post_id: str, config: Config) -> str:
+        token = self._page_token(config, post_id.split("_", 1)[0])
+        if not token:
+            raise PlatformError("not_configured", "This post was made on a Facebook Page that is no longer connected.")
+        return token
+
+    async def fetch_stats(self, post_id: str, config: Config) -> PostStats:
+        token = self._stats_token(post_id, config)
+        async with self.http() as client:
+            data = await self._graph(client, "GET", post_id, token, config, {
+                "fields": "reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares"})
+            views = None
+            try:  # needs read_insights; older connections may not have it
+                insights = await self._graph(client, "GET", f"{post_id}/insights", token, config,
+                                             {"metric": "post_media_view"})
+                values = (insights.get("data") or [{}])[0].get("values") or [{}]
+                views = values[0].get("value")
+            except PlatformError:
+                pass
+        return PostStats(
+            likes=(data.get("reactions") or {}).get("summary", {}).get("total_count", 0),
+            replies=(data.get("comments") or {}).get("summary", {}).get("total_count", 0),
+            shares=(data.get("shares") or {}).get("count", 0),
+            views=views if isinstance(views, int) else None,
+        )
+
+    async def fetch_comments(self, post_id: str, config: Config) -> list[Comment]:
+        token = self._stats_token(post_id, config)
+        async with self.http() as client:
+            try:
+                data = await self._graph(client, "GET", f"{post_id}/comments", token, config, {
+                    "fields": "message,created_time,from", "order": "reverse_chronological", "limit": "20"})
+            except PlatformError as err:
+                if err.error_code != "missing_permission":
+                    raise
+                raise PlatformError("missing_permission", "To read comments, reconnect Facebook in Settings "
+                                    "(Auto Poster now asks for permission to read comments on your Page).",
+                                    err.technical_details) from None
+        return [Comment(author=(c.get("from") or {}).get("name", "Someone"), text=c.get("message", ""),
+                        created_at=c.get("created_time")) for c in data.get("data", [])]
 
     async def delete_post(self, post_id: str, config: Config) -> None:
         page_id = post_id.split("_", 1)[0]

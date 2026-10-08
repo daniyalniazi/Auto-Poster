@@ -23,7 +23,9 @@ Meta's developer dashboard changes often; if something looks different, follow
 1. Go to [developers.facebook.com/apps](https://developers.facebook.com/apps) and click **Create app**.
 2. Choose the use case **Manage everything on your Page**. You can skip connecting a business portfolio.
 3. In the use case's settings, make sure these permissions are added:
-   `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_metadata`.
+   `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `pages_manage_metadata`,
+   and for the **Stats** page `read_insights` (views) and `pages_read_user_content` (comments).
+   If you connected before Stats existed, click **Connect Facebook** again to grant the last two.
 4. If your app has **Facebook Login** settings, add this to **Valid OAuth Redirect URIs**:
 
    ```

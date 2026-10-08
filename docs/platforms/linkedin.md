@@ -85,6 +85,11 @@ Link preview cards are not generated (the Posts API doesn't fetch URLs).
 | Image size | fewer than 36,152,320 pixels | Images API |
 | Daily requests | about 150 per member | Share on LinkedIn rate limits |
 
+## Stats
+
+Reading your own post statistics needs LinkedIn permissions that are only given to approved
+partner apps, so the Stats page shows LinkedIn posts as "Not available".
+
 ## API version
 
 LinkedIn versions its API monthly (`LinkedIn-Version: YYYYMM`) and retires each version after

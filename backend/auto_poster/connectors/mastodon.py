@@ -31,13 +31,15 @@ from auto_poster.models import (
     PlatformError,
     PlatformLimits,
     Post,
+    Comment,
     PostResult,
+    PostStats,
     Problem,
     SetupGuide,
 )
 from auto_poster.services import oauth
 
-SCOPES = "read:accounts write:statuses write:media"
+SCOPES = "read:accounts read:statuses write:statuses write:media"  # read:statuses: post stats
 APP_NAME = "Auto Poster"
 APP_WEBSITE = "https://github.com/daniyalniazi/Auto-Poster"
 MEDIA_POLL_SECONDS = 1.0
@@ -69,6 +71,15 @@ def normalize_server(value: str) -> str:
     if "://" not in value:
         value = "https://" + value
     return (urlparse(value).hostname or "").lower()
+
+
+def html_to_text(content: str) -> str:
+    """Mastodon sends post text as simple HTML; show it as plain text."""
+    import html as html_lib
+
+    text = re.sub(r"<br\s*/?>", "\n", content)
+    text = re.sub(r"</p>\s*<p>", "\n\n", text)
+    return html_lib.unescape(re.sub(r"<[^>]+>", "", text)).strip()
 
 
 def mastodon_length(text: str, url_length: int = DEFAULT_URL_LENGTH) -> int:
@@ -379,6 +390,43 @@ class MastodonConnector(Connector):
         return media["id"]
 
     can_delete = True
+    supports_stats = True
+
+    async def _read(self, client, server: str, token: str, path: str) -> dict | list:
+        """GET with the token; if the token predates the stats permission, try without it
+        (works for public and quiet-public posts)."""
+        response = await client.get(f"https://{server}{path}", headers={"Authorization": f"Bearer {token}"})
+        if response.status_code == 403:
+            response = await client.get(f"https://{server}{path}")
+            if response.status_code in (401, 403, 404):
+                raise PlatformError("missing_permission", "To see stats for this post, reconnect Mastodon in "
+                                    "Settings (Auto Poster now asks for permission to read your posts).")
+        if response.status_code == 404:
+            raise PlatformError("not_found", "This post is no longer on Mastodon.")
+        if response.status_code != 200:
+            raise self._error(response, path)
+        return response.json()
+
+    async def fetch_stats(self, post_id: str, config: Config) -> PostStats:
+        server = normalize_server(config["server"])
+        async with self.http() as client:
+            status = await self._read(client, server, config["access_token"].strip(), f"/api/v1/statuses/{post_id}")
+        return PostStats(likes=status.get("favourites_count", 0), shares=status.get("reblogs_count", 0),
+                         replies=status.get("replies_count", 0))
+
+    async def fetch_comments(self, post_id: str, config: Config) -> list[Comment]:
+        server = normalize_server(config["server"])
+        async with self.http() as client:
+            context = await self._read(client, server, config["access_token"].strip(),
+                                       f"/api/v1/statuses/{post_id}/context")
+        comments = [
+            Comment(author=s.get("account", {}).get("display_name") or f"@{s.get('account', {}).get('acct', '')}",
+                    text=html_to_text(s.get("content", "")), created_at=s.get("created_at"))
+            for s in context.get("descendants", [])
+            if s.get("in_reply_to_id") == post_id
+        ]
+        comments.sort(key=lambda c: c.created_at or "", reverse=True)
+        return comments[:20]
 
     async def delete_post(self, post_id: str, config: Config) -> None:
         server = normalize_server(config["server"])

@@ -246,3 +246,16 @@ section.card { scroll-margin-top: 16px; }
 .reminder-banner { margin-bottom: 16px; }
 .reminder-banner .notice { margin: 0 0 8px; }
 .reminder-form { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin: 10px 0; }
+
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.stat-tile { margin-bottom: 16px; }
+.stat-label { color: var(--muted); font-size: 13px; }
+.stat-value { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.table-scroll { overflow-x: auto; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.stats-table th, .stats-table td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--border); }
+.stats-table thead th { border-top: none; color: var(--muted); font-weight: 500; font-size: 13px; }
+.stats-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.stats-table .actions { text-align: right; white-space: nowrap; }
+.stats-table .actions > * + * { margin-left: 10px; }
+.comments { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 10px; }

@@ -142,6 +142,21 @@ class PostResult(BaseModel):
     deleted_at: str | None = None  # when the user deleted it from the platform via Auto Poster
 
 
+class Comment(BaseModel):
+    author: str
+    text: str
+    created_at: str | None = None
+
+
+class PostStats(BaseModel):
+    """Current totals for one post on one platform. None = the platform doesn't report it."""
+
+    likes: int | None = None
+    shares: int | None = None  # reposts, boosts, shares
+    replies: int | None = None  # comments / replies
+    views: int | None = None
+
+
 class ConnectionStatus(BaseModel):
     ok: bool
     message: str
