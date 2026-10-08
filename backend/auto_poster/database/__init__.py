@@ -68,6 +68,34 @@ MIGRATIONS = [
     -- The exact text each platform received.
     ALTER TABLE post_results ADD COLUMN sent_text TEXT;
     """,
+    """
+    -- The full post as written (PostRequest JSON), so it can be posted again.
+    ALTER TABLE posts ADD COLUMN compose TEXT;
+    CREATE TABLE drafts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        data TEXT NOT NULL                  -- PostRequest JSON
+    );
+    CREATE TABLE hashtag_sets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        tags TEXT NOT NULL,                 -- JSON list, without '#'
+        created_at TEXT NOT NULL
+    );
+    CREATE TABLE reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        history_post_id INTEGER REFERENCES posts(id) ON DELETE SET NULL,
+        label TEXT NOT NULL,                -- short preview of the post
+        request TEXT NOT NULL,              -- PostRequest JSON to prefill the repost
+        next_at TEXT NOT NULL,              -- UTC, ISO 8601
+        repeat TEXT NOT NULL,               -- once, weekly, every_2_weeks, monthly
+        status TEXT NOT NULL,               -- active, stopped
+        notified_at TEXT                    -- when the current due date was announced
+    );
+    """,
 ]
 
 

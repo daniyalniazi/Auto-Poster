@@ -126,7 +126,7 @@ button, .button {
 }
 button:hover:not(:disabled) { background: var(--surface-2); }
 button:disabled { opacity: 0.55; cursor: not-allowed; }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.primary, .button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 button.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
 button.danger { color: var(--bad); }
 button.big { padding: 11px 22px; font-size: 16px; }
@@ -237,3 +237,8 @@ section.card { scroll-margin-top: 16px; }
 }
 .tab.active { border-color: var(--border); background: var(--surface); color: var(--text); }
 .preview-text { min-height: 0; }
+
+.hashtag-sets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.chip { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.chip button { border: none; border-radius: 0; padding: 3px 10px; font-size: 13px; font-weight: 500; }
+.chip .chip-remove { padding: 3px 8px; color: var(--muted); border-left: 1px solid var(--border); }

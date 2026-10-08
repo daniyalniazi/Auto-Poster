@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from auto_poster.config import media_dir
-from auto_poster.models import ImageFile
+from auto_poster.models import ImageFile, ImageInfo
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # sanity cap; platforms enforce their own smaller limits
 ORPHAN_MAX_AGE_SECONDS = 24 * 3600
@@ -72,6 +72,21 @@ def load(image_id: str) -> ImageFile | None:
         width=width,
         height=height,
     )
+
+
+def infos(image_ids: list[str]) -> list[ImageInfo]:
+    """Details of the images that still exist, in order."""
+    result = []
+    for image_id in image_ids:
+        image = load(image_id)
+        if image:
+            result.append(ImageInfo(id=image.id, filename=image.filename, format=image.format,
+                                    size_bytes=image.size_bytes, width=image.width, height=image.height))
+    return result
+
+
+def total_size() -> int:
+    return sum(p.stat().st_size for p in media_dir().iterdir() if p.is_file())
 
 
 def delete(image_id: str) -> None:

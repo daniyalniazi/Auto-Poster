@@ -126,9 +126,7 @@ async def publish_to_platforms(request: PostRequest, images: list[ImageFile]) ->
     return list(await asyncio.gather(*(one(p) for p in request.platforms)))
 
 
-async def publish_now(
-    request: PostRequest, request_id: str, source: str = "manual", delete_media: bool = True
-) -> tuple[int, list[PostResult]]:
+async def publish_now(request: PostRequest, request_id: str, source: str = "manual") -> tuple[int, list[PostResult]]:
     """Publish immediately. Returns (history post id, results).
 
     The request ID is stored with the history entry, so the same request can never be
@@ -143,14 +141,12 @@ async def publish_now(
     try:
         images, _ = load_images(request)
         post_id = history.create_post(
-            request_id, compose.summary_text(request), len(images), request.platforms, source
+            request_id, compose.summary_text(request), len(images), request.platforms, source,
+            compose=PostRequest.model_validate(request.model_dump(include=set(PostRequest.model_fields))),
         )
         results = await publish_to_platforms(request, images)
         history.save_results(post_id, results)
-        if delete_media and all(r.success for r in results):
-            for image in images:
-                media.delete(image.id)
-        # Otherwise keep the images so the user can go back and retry; old uploads are cleaned at startup.
+        # Images are kept with the history entry so the post can be posted again.
         return post_id, results
     finally:
         _in_flight.discard(request_id)

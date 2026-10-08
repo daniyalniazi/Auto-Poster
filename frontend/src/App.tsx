@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import ComposePage from "./pages/ComposePage";
+import DraftsPage from "./pages/DraftsPage";
 import HistoryPage from "./pages/HistoryPage";
 import ScheduledPage from "./pages/ScheduledPage";
 import SettingsPage from "./pages/SettingsPage";
 
 const PAGES = [
   { hash: "#/", label: "Create post" },
+  { hash: "#/drafts", label: "Drafts" },
   { hash: "#/scheduled", label: "Scheduled" },
   { hash: "#/history", label: "History" },
   { hash: "#/settings", label: "Settings" },
@@ -46,6 +48,7 @@ export default function App() {
       <main>
         {/* key: switching between "edit scheduled post" and "new post" starts a fresh form */}
         {page === "#/" && <ComposePage key={fullHash} />}
+        {page === "#/drafts" && <DraftsPage />}
         {page === "#/scheduled" && <ScheduledPage />}
         {page === "#/history" && <HistoryPage />}
         {page === "#/settings" && <SettingsPage />}

@@ -24,7 +24,7 @@ from auto_poster.connectors.base import safe_oauth_callback
 from auto_poster.connectors.registry import get_connector
 from auto_poster.security.local_guard import LocalGuard, LocalGuardMiddleware
 from auto_poster.security.redact import setup_logging
-from auto_poster.services import history, media, oauth, scheduler
+from auto_poster.services import history, media, media_usage, oauth, scheduler
 from auto_poster.services.settings import load_config
 
 log = logging.getLogger("auto_poster")
@@ -49,7 +49,7 @@ def create_app(port: int = DEFAULT_PORT, dev: bool = False, run_scheduler: bool 
     database.migrate()
     history.mark_interrupted()
     scheduler.recover_after_restart()
-    media.cleanup_orphans(keep=scheduler.referenced_image_ids())
+    media.cleanup_orphans(keep=media_usage.in_use_image_ids())
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):

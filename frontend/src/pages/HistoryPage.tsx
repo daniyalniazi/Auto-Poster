@@ -86,6 +86,7 @@ export default function HistoryPage() {
                 </span>
               )}
               <span className="spacer" />
+              <a className="button" href={`#/?from=${entry.id}`}>Post again</a>
               <button className="link-button" onClick={() => remove(entry.id)}>Remove</button>
             </div>
             <p className="history-text">{entry.text || <span className="muted">(no text)</span>}</p>

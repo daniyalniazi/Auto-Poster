@@ -26,6 +26,12 @@ Runs locally. No account required. No cloud backend. Open source (MIT).
 Each platform is posted to separately: if one fails, the others still go out, and you see
 exactly which one failed and why.
 
+Also:
+
+- **Drafts:** save a post to finish later. Unsaved work is restored if you close the tab by accident.
+- **Post again:** reuse any post from History, including its images.
+- **Saved hashtag sets:** save hashtags you use often (e.g. "Launch") and add them with one click.
+
 ## Your data stays with you
 
 - Auto Poster runs on your computer and opens in your web browser. It is not a website.

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from auto_poster import database
-from auto_poster.models import PostResult
+from auto_poster.models import PostRequest, PostResult
 
 
 class HistoryEntry(BaseModel):
@@ -26,12 +26,14 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def create_post(request_id: str, text: str, image_count: int, platforms: list[str], source: str = "manual") -> int:
+def create_post(request_id: str, text: str, image_count: int, platforms: list[str], source: str = "manual",
+                compose: PostRequest | None = None) -> int:
     with database.session() as conn:
         cursor = conn.execute(
-            "INSERT INTO posts (request_id, created_at, text, image_count, platforms, status, source) "
-            "VALUES (?, ?, ?, ?, ?, 'publishing', ?)",
-            (request_id, now_iso(), text, image_count, json.dumps(platforms), source),
+            "INSERT INTO posts (request_id, created_at, text, image_count, platforms, status, source, compose) "
+            "VALUES (?, ?, ?, ?, ?, 'publishing', ?, ?)",
+            (request_id, now_iso(), text, image_count, json.dumps(platforms), source,
+             compose.model_dump_json() if compose else None),
         )
         return cursor.lastrowid
 
@@ -119,9 +121,25 @@ def get_entry(post_id: int) -> HistoryEntry | None:
         return _entry(conn, row) if row else None
 
 
+def get_compose(post_id: int) -> PostRequest | None:
+    """The post as it was written, for "Post again". Older entries only have their text."""
+    with database.session() as conn:
+        row = conn.execute("SELECT text, platforms, compose FROM posts WHERE id = ?", (post_id,)).fetchone()
+    if row is None:
+        return None
+    if row["compose"]:
+        return PostRequest.model_validate_json(row["compose"])
+    return PostRequest(text=row["text"], platforms=json.loads(row["platforms"]))
+
+
 def delete_entry(post_id: int) -> None:
+    from auto_poster.services import media_usage
+
+    compose = get_compose(post_id)
     with database.session() as conn:
         conn.execute("DELETE FROM posts WHERE id = ?", (post_id,))
+    if compose:
+        media_usage.delete_unused(compose.image_ids)
 
 
 def mark_interrupted() -> None:

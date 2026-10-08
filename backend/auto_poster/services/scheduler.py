@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from auto_poster import database
 from auto_poster.models import ImageInfo, PostRequest
-from auto_poster.services import history, media, publisher
+from auto_poster.services import history, media, media_usage, publisher
 
 log = logging.getLogger(__name__)
 
@@ -66,16 +66,6 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _image_infos(image_ids: list[str]) -> list[ImageInfo]:
-    infos = []
-    for image_id in image_ids:
-        image = media.load(image_id)
-        if image:
-            infos.append(ImageInfo(id=image.id, filename=image.filename, format=image.format,
-                                   size_bytes=image.size_bytes, width=image.width, height=image.height))
-    return infos
-
-
 COMPOSE_FIELDS = ("mode", "title", "hashtags", "link", "overrides")
 
 
@@ -96,7 +86,7 @@ def _from_row(row) -> ScheduledPost:
         updated_at=row["updated_at"],
         scheduled_at=row["scheduled_at"],
         text=row["text"],
-        images=_image_infos(json.loads(row["image_ids"])),
+        images=media.infos(json.loads(row["image_ids"])),
         alt_texts=json.loads(row["alt_texts"]),
         platforms=json.loads(row["platforms"]),
         options=json.loads(row["options"]),
@@ -200,16 +190,8 @@ def delete(post_id: int) -> None:
     _delete_unused_images({i.id for i in existing.images})
 
 
-def referenced_image_ids() -> set[str]:
-    with database.session() as conn:
-        rows = conn.execute("SELECT image_ids FROM scheduled_posts WHERE status != 'sent'").fetchall()
-    return {image_id for row in rows for image_id in json.loads(row["image_ids"])}
-
-
 def _delete_unused_images(image_ids: set[str]) -> None:
-    still_used = referenced_image_ids()
-    for image_id in image_ids - still_used:
-        media.delete(image_id)
+    media_usage.delete_unused(image_ids)
 
 
 # ---- sending ---------------------------------------------------------------------------
@@ -237,9 +219,7 @@ async def send(post_id: int, allowed_from: tuple[str, ...] = ("scheduled",)) -> 
     request = _request_from_row(row)
     request_id = f"scheduled-{post_id}-{row['attempt']}"
     try:
-        history_id, results = await publisher.publish_now(
-            request, request_id, source="scheduled", delete_media=False
-        )
+        history_id, results = await publisher.publish_now(request, request_id, source="scheduled")
         status = history.overall_status(results)
         status = "sent" if status == "success" else status
         failed = [r for r in results if not r.success]
@@ -253,8 +233,6 @@ async def send(post_id: int, allowed_from: tuple[str, ...] = ("scheduled",)) -> 
             "UPDATE scheduled_posts SET status = ?, note = ?, history_post_id = ?, updated_at = ? WHERE id = ?",
             (status, note, history_id, history.now_iso(), post_id),
         )
-    if status == "sent":
-        _delete_unused_images(set(request.image_ids))
     return get(post_id)
 
 

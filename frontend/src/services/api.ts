@@ -97,6 +97,26 @@ export interface Prepared {
   problems: Problem[];
 }
 
+export interface Draft {
+  id: number;
+  created_at: string;
+  updated_at: string;
+  request: PostRequest;
+  images: ImageInfo[];
+}
+
+export interface ComposeData {
+  request: PostRequest;
+  images: ImageInfo[];
+  missing_images: number;
+}
+
+export interface HashtagSet {
+  id: number;
+  name: string;
+  tags: string[];
+}
+
 export interface PublishResponse {
   history_id: number;
   status: string;
@@ -203,6 +223,15 @@ export const api = {
   history: (limit = 50, offset = 0, status = "") =>
     request<HistoryEntry[]>("GET", `/history?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ""}`),
   deleteHistory: (id: number) => request<{ ok: boolean }>("DELETE", `/history/${id}`),
+  historyCompose: (id: number) => request<ComposeData>("GET", `/history/${id}/compose`),
+  drafts: () => request<Draft[]>("GET", "/drafts"),
+  getDraft: (id: number) => request<Draft>("GET", `/drafts/${id}`),
+  createDraft: (post: PostRequest) => request<Draft>("POST", "/drafts", post),
+  updateDraft: (id: number, post: PostRequest) => request<Draft>("PUT", `/drafts/${id}`, post),
+  deleteDraft: (id: number) => request<{ ok: boolean }>("DELETE", `/drafts/${id}`),
+  hashtagSets: () => request<HashtagSet[]>("GET", "/hashtag-sets"),
+  createHashtagSet: (name: string, tags: string) => request<HashtagSet>("POST", "/hashtag-sets", { name, tags }),
+  deleteHashtagSet: (id: number) => request<{ ok: boolean }>("DELETE", `/hashtag-sets/${id}`),
   scheduled: () => request<ScheduledPost[]>("GET", "/scheduled"),
   getScheduled: (id: number) => request<ScheduledPost>("GET", `/scheduled/${id}`),
   createScheduled: (post: PostRequest, when: Date) =>
